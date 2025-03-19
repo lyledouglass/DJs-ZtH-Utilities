@@ -35,6 +35,7 @@ func main() {
 	discord.AddHandler(onReady)
 	discord.AddHandler(commands.InteractionCreate)
 	discord.AddHandler(commands.AddRoleInteractionCreate)
+	discord.AddHandler(events.ButtonInteractionCreate)
 
 	discord.Open()
 	defer discord.Close()
