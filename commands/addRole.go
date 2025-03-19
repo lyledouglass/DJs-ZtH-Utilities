@@ -32,7 +32,7 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 
 			// Check if the role requires approval
 			rolesRequiringApproval := viper.GetStringSlice("rolesRequiringApproval")
-			approvalRole := viper.GetString("roleApprovalId")
+			approvalRole := viper.GetString("roleApproverId")
 			if contains(rolesRequiringApproval, role.ID) {
 				// Send a message to the approver role for approval
 				approvalMessage := user.Username + " has requested to add the `@" + role.Name + "` role to " + "`" + targetMember.User.Username + "`. An approver needs to approve this request. " + "<@&" + approvalRole + ">"

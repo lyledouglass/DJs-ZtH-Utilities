@@ -24,7 +24,7 @@ func ButtonInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreat
 				return
 			}
 
-			approverRoleId := viper.GetString("roleApprovalId")
+			approverRoleId := viper.GetString("roleApproverId")
 			if !contains(member.Roles, approverRoleId) {
 				err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
