@@ -30,6 +30,18 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 				return
 			}
 
+			// Check if the user has the role already
+			if contains(targetMember.Roles, role.ID) {
+				_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+					Content: targetMember.User.Username + " already has the role.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				})
+				if err != nil {
+					log.Println("Error sending follow-up message:", err)
+				}
+				return
+			}
+
 			// Check if the role requires approval
 			rolesRequiringApproval := viper.GetStringSlice("rolesRequiringApproval")
 			approvalRole := viper.GetString("roleApproverId")
