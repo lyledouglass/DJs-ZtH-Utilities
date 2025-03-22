@@ -60,6 +60,10 @@ func RegisterCommands(s *discordgo.Session) {
 				},
 			},
 		},
+		{
+			Name: "Report Message",
+			Type: discordgo.MessageApplicationCommand,
+		},
 	}
 	for _, command := range commands {
 		_, err := s.ApplicationCommandCreate(s.State.User.ID, "", command)

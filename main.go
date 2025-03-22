@@ -66,6 +66,7 @@ func main() {
 	discord.AddHandler(commands.ListRole)
 	discord.AddHandler(commands.RemoveRole)
 	discord.AddHandler(events.RoleButtonInteractionCreate)
+	discord.AddHandler(events.HandleReportMessageCommand)
 
 	discord.Open()
 	defer discord.Close()
