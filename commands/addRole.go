@@ -46,17 +46,33 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 			rolesRequiringApproval := viper.GetStringSlice("rolesRequiringApproval")
 			approvalRole := viper.GetString("roleApproverId")
 			if contains(rolesRequiringApproval, role.ID) {
-				// Send a message to the approver role for approval
-				approvalMessage := user.Username + " has requested to add the `@" + role.Name + "` role to " + "`" + targetMember.User.Username + "`. An approver needs to approve this request. " + "<@&" + approvalRole + ">"
+				embed := &discordgo.MessageEmbed{
+					Title:       "Role Request",
+					Description: user.Username + " has requested to add the `@" + role.Name + "` role to " + "`" + targetMember.User.Username + "`",
+					Color:       0x00ff00,
+					Fields: []*discordgo.MessageEmbedField{
+						{
+							Name:   "Approval Role",
+							Value:  "<@&" + approvalRole + ">",
+							Inline: true,
+						},
+					},
+				}
 				_, err = s.ChannelMessageSendComplex(viper.GetString("accessControlChannelId"), &discordgo.MessageSend{
-					Content: approvalMessage,
+					Content: "||<@&" + approvalRole + ">||",
+					Embeds:  []*discordgo.MessageEmbed{embed},
 					Components: []discordgo.MessageComponent{
 						discordgo.ActionsRow{
 							Components: []discordgo.MessageComponent{
 								discordgo.Button{
 									Label:    "Approve",
 									Style:    discordgo.PrimaryButton,
-									CustomID: "approve_role_" + targetUser.ID + "_" + role.ID,
+									CustomID: "approve_add_role_" + targetUser.ID + "_" + role.ID,
+								},
+								discordgo.Button{
+									Label:    "Deny",
+									Style:    discordgo.DangerButton,
+									CustomID: "deny_add_role_" + targetUser.ID + "_" + role.ID,
 								},
 							},
 						},
