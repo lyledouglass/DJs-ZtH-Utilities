@@ -55,10 +55,13 @@ func main() {
 		log.Fatalf("Error reading config file: %s", err)
 	}
 
+	intents := discordgo.IntentsGuildMembers | discordgo.IntentsGuildMessages
+
 	discord, err := discordgo.New("Bot " + viper.GetString("botToken"))
 	if err != nil {
 		log.Fatalf("error creating Discord session: %s", err)
 	}
+	discord.Identify.Intents = intents
 	// Commands and events
 	discord.AddHandler(onReady)
 	discord.AddHandler(commands.InteractionCreate)
@@ -68,6 +71,7 @@ func main() {
 	discord.AddHandler(events.RoleButtonInteractionCreate)
 	discord.AddHandler(events.HandleReportMessageCommand)
 	discord.AddHandler(events.OnDJsThreadCreate)
+	discord.AddHandler(events.WelcomeNewCommunityMember)
 
 	discord.Open()
 	defer discord.Close()
