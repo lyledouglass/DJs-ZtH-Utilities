@@ -4,6 +4,7 @@ go 1.21.5
 
 require (
 	github.com/bwmarrin/discordgo v0.28.1
+	github.com/hashicorp/golang-lru v1.0.2
 	github.com/spf13/viper v1.20.0
 )
 

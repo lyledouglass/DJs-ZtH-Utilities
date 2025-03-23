@@ -73,6 +73,11 @@ func main() {
 	discord.AddHandler(events.OnDJsThreadCreate)
 	discord.AddHandler(events.WelcomeNewCommunityMember)
 	discord.AddHandler(events.OnZthTicketCreate)
+	discord.AddHandler(events.OnMemberJoin)
+	discord.AddHandler(events.OnMemberLeave)
+	discord.AddHandler(events.OnMessageDelete)
+	discord.AddHandler(events.OnMessageCreate)
+	discord.AddHandler(events.OnMessageUpdate)
 
 	discord.Open()
 	defer discord.Close()
