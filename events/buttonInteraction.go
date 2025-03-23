@@ -255,6 +255,41 @@ func RoleButtonInteractionCreate(s *discordgo.Session, i *discordgo.InteractionC
 				}
 			}
 		}
+		if strings.HasPrefix(data.CustomID, "ping_inviters_") {
+			parts := strings.Split(data.CustomID, "_")
+			userID := parts[2]
+
+			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseDeferredMessageUpdate,
+			})
+			if err != nil {
+				log.Println("Error sending interaction response:", err)
+			}
+
+			s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Content: "<@&" + viper.GetString("championRoleId") + ">, our friend " + "<@" + userID + "> is currently awaiting a guild invite!",
+			})
+		} else if strings.HasPrefix(data.CustomID, "sorry_missed_you_") {
+			parts := strings.Split(data.CustomID, "_")
+			userID := parts[3]
+
+			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseDeferredMessageUpdate,
+			})
+			if err != nil {
+				log.Println("Error sending interaction response:", err)
+			}
+
+			embed := &discordgo.MessageEmbed{
+				Title:       "Sorry We Missed You",
+				Description: "Sometimes our schedules just don't line up. When you're back online and availabe for an invite, please hit the Ping Inviters button or mention <@&" + viper.GetString("championRoleId") + "> in this channel and hopefully someone will be available to assist!",
+			}
+
+			s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Content: "<@" + userID + ">",
+				Embeds:  []*discordgo.MessageEmbed{embed},
+			})
+		}
 	}
 }
 

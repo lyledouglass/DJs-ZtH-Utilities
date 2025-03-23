@@ -56,6 +56,22 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 
 	_, err := s.ChannelMessageSendComplex(threadId, &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{ticketEmbed},
+		Components: []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.Button{
+						Label:    "Ping Inviters",
+						Style:    discordgo.PrimaryButton,
+						CustomID: "ping_inviters_" + userId,
+					},
+					discordgo.Button{
+						Label:    "Sorry We Missed You",
+						Style:    discordgo.PrimaryButton,
+						CustomID: "sorry_missed_you_" + userId,
+					},
+				},
+			},
+		},
 	})
 	if err != nil {
 		log.Println("Error sending ticket embed:", err)
