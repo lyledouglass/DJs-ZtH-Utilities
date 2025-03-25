@@ -24,6 +24,9 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 			// Acknowledge the interaction first to avoid timeout
 			err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Flags: discordgo.MessageFlagsEphemeral,
+				},
 			})
 			if err != nil {
 				log.Println("Error acknowledging interaction:", err)
@@ -107,11 +110,12 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 			}
 
 			// Format the message
-			successMessage := user.Username + " has added the `@" + role.Name + "` to " + "`" + targetMember.User.Username + "`"
+			successMessage := "`" + user.Username + "` has added the `@" + role.Name + "` role to " + "`" + targetMember.User.Username + "`"
+			executorReturnMessage := "The `@" + role.Name + "` role has been given to " + "`" + targetMember.User.Username + "`"
 
 			// Send an ephemeral follow-up message indicating success
 			_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: successMessage,
+				Content: executorReturnMessage,
 				Flags:   discordgo.MessageFlagsEphemeral,
 			})
 			if err != nil {

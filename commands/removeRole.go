@@ -24,6 +24,9 @@ func RemoveRole(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 			err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Flags: discordgo.MessageFlagsEphemeral,
+				},
 			})
 			if err != nil {
 				log.Println("Error acknowledging interaction:", err)
@@ -102,11 +105,12 @@ func RemoveRole(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				return
 			}
 
-			successMessage := "The role `@" + role.Name + "` has been removed from " + "`" + targetMember.User.Username + "`"
+			executorReturnMessage := "The role `@" + role.Name + "` has been removed from " + "`" + targetMember.User.Username + "`"
+			successMessage := "`" + user.Username + "` has removed the role `@" + role.Name + "` from " + "`" + targetMember.User.Username + "`"
 
 			// Send a follow-up message to the user
 			_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-				Content: successMessage,
+				Content: executorReturnMessage,
 				Flags:   discordgo.MessageFlagsEphemeral,
 			})
 			if err != nil {
