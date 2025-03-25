@@ -18,6 +18,7 @@ func onReady(s *discordgo.Session, event *discordgo.Ready) {
 
 	// Set the bot's status to total members with the community role
 	guild, err := s.Guild(viper.GetString("guildID"))
+	events.CacheGuildMembers(s, guild.ID)
 	if err != nil {
 		log.Println("Error getting guild:", err)
 		return
@@ -75,6 +76,7 @@ func main() {
 	discord.AddHandler(events.OnZthTicketCreate)
 	discord.AddHandler(events.OnMemberJoin)
 	discord.AddHandler(events.OnMemberLeave)
+	discord.AddHandler(events.OnMemberUpdate)
 	discord.AddHandler(events.OnMessageDelete)
 	discord.AddHandler(events.OnMessageCreate)
 	discord.AddHandler(events.OnMessageUpdate)
