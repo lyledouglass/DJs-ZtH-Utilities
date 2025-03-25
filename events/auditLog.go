@@ -104,6 +104,7 @@ func OnMemberLeave(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 
 	embed := &discordgo.MessageEmbed{
 		Title: "User Left",
+		Color: 0xFF0000, // Red color for user leaving
 		Fields: []*discordgo.MessageEmbedField{
 			{
 				Name:  "User",
