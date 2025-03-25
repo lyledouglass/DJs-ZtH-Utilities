@@ -3,6 +3,7 @@ package events
 import (
 	"log"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	lru "github.com/hashicorp/golang-lru"
@@ -59,15 +60,19 @@ func OnMemberJoin(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 }
 
 func OnMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
-	communityMemberRole := viper.GetString("communityMemberRole")
-	if hasRole(m.Roles, communityMemberRole) {
-		// Check if the member is already cached
+	log.Printf("OnMemberUpdate triggered for user: %s", m.User.ID)
+
+	// Delay the cache update to allow other handlers (e.g.
+	// WelcomeNewCommunityMember) to process first
+	delay := viper.GetInt("memberCacheUpdateDelay")
+	go func() {
+		time.Sleep(time.Duration(delay) * time.Millisecond)
 		memberCache.Add(m.User.ID, &discordgo.Member{
 			User:  m.User,
 			Roles: m.Roles,
 		})
-		log.Printf("Cached member: %s", m.User.ID)
-	}
+		log.Printf("Updated cache for member: %s", m.User.ID)
+	}()
 }
 
 func OnMemberLeave(s *discordgo.Session, m *discordgo.GuildMemberRemove) {

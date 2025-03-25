@@ -51,14 +51,43 @@ func WelcomeNewCommunityMember(s *discordgo.Session, m *discordgo.GuildMemberUpd
 		return
 	}
 
+	communityMemberRole := viper.GetString("communityMemberRole")
+	roleAdded := false
+
 	for _, role := range m.Roles {
-		if role == viper.GetString("communityMemberRole") {
-			message := "<@" + executorId + "> has welcomed a new member!\nSay " + greeting + " to <@" + m.User.ID + ">!"
-			_, err := s.ChannelMessageSend(viper.GetString("communityMemberGeneralChannelId"), message)
-			if err != nil {
-				log.Println("Error sending welcome message:", err)
-			}
+		if role == communityMemberRole {
+			roleAdded = true
+			break
+		}
+	}
+
+	// Retrieve the cached member from the memberCache
+	cachedMember, exists := memberCache.Get(m.User.ID)
+	if exists {
+		member, ok := cachedMember.(*discordgo.Member)
+		if !ok {
+			log.Printf("Cached member %s is not of type *discordgo.Member", m.User.ID)
 			return
+		}
+
+		// Check if the role already existed in the cached roles
+		for _, role := range member.Roles {
+			if role == communityMemberRole {
+				// Role already existed before the update, no need to send a message
+				roleAdded = false
+				break
+			}
+		}
+	} else {
+		log.Printf("Member %s not found in cache, assuming role is newly added", m.User.ID)
+	}
+
+	// If the role was newly added, send the welcome message
+	if roleAdded {
+		message := "<@" + executorId + "> has welcomed a new member!\nSay " + greeting + " to <@" + m.User.ID + ">!"
+		_, err := s.ChannelMessageSend(viper.GetString("communityMemberGeneralChannelId"), message)
+		if err != nil {
+			log.Println("Error sending welcome message:", err)
 		}
 	}
 }
