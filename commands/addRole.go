@@ -51,7 +51,7 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 			if contains(rolesRequiringApproval, role.ID) {
 				embed := &discordgo.MessageEmbed{
 					Title:       "Role Request",
-					Description: user.Username + " has requested to add the `@" + role.Name + "` role to " + "`" + targetMember.User.Username + "`",
+					Description: "<@" + user.ID + "> has requested to add the <@&" + role.ID + "> role to " + "<@" + targetMember.User.ID + ">",
 					Color:       0x00ff00,
 					Fields: []*discordgo.MessageEmbedField{
 						{
@@ -70,12 +70,12 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 								discordgo.Button{
 									Label:    "Approve",
 									Style:    discordgo.PrimaryButton,
-									CustomID: "approve_add_role_" + targetUser.ID + "_" + role.ID,
+									CustomID: "approve_add_role_" + targetMember.User.ID + "_" + role.ID,
 								},
 								discordgo.Button{
 									Label:    "Deny",
 									Style:    discordgo.DangerButton,
-									CustomID: "deny_add_role_" + targetUser.ID + "_" + role.ID,
+									CustomID: "deny_add_role_" + targetMember.User.ID + "_" + role.ID,
 								},
 							},
 						},
@@ -110,8 +110,29 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 			}
 
 			// Format the message
-			successMessage := "`" + user.Username + "` has added the `@" + role.Name + "` role to " + "`" + targetMember.User.Username + "`"
-			executorReturnMessage := "The `@" + role.Name + "` role has been given to " + "`" + targetMember.User.Username + "`"
+			successEmbed := &discordgo.MessageEmbed{
+				Title: "Role Added",
+				Color: 0x00ff00,
+				Fields: []*discordgo.MessageEmbedField{
+					{
+						Name:   "Added By",
+						Value:  "<@" + user.ID + ">",
+						Inline: false,
+					},
+					{
+						Name:   "Target User",
+						Value:  "<@" + targetUser.ID + ">",
+						Inline: false,
+					},
+					{
+						Name:   "Role",
+						Value:  "<@&" + role.ID + ">",
+						Inline: false,
+					},
+				},
+			}
+
+			executorReturnMessage := "The `@" + role.Name + "` role has been given to " + "<@" + targetMember.User.ID + ">"
 
 			// Send an ephemeral follow-up message indicating success
 			_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
@@ -122,7 +143,9 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 				log.Println("Error sending follow-up message:", err)
 			}
 			// Send a message to the access channel indicating success
-			_, err = s.ChannelMessageSend(viper.GetString("accessControlChannelId"), successMessage)
+			_, err = s.ChannelMessageSendComplex(viper.GetString("accessControlChannelId"), &discordgo.MessageSend{
+				Embeds: []*discordgo.MessageEmbed{successEmbed},
+			})
 			if err != nil {
 				log.Println("Error sending message to access channel:", err)
 			}

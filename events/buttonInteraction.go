@@ -57,7 +57,7 @@ func RoleButtonInteractionCreate(s *discordgo.Session, i *discordgo.InteractionC
 			// Update the embed
 			embed := &discordgo.MessageEmbed{
 				Title:       "Role Request - Approved",
-				Description: "The request to add the `@" + roleID + "` role to " + "<@" + targetUserID + "> has been approved.",
+				Description: "The request to add <@&" + roleID + "> role to <@" + targetUserID + "> has been approved by <@" + i.Member.User.ID + ">.",
 				Color:       0x00ff00,
 			}
 
@@ -108,7 +108,7 @@ func RoleButtonInteractionCreate(s *discordgo.Session, i *discordgo.InteractionC
 			// Update the embed
 			embed := &discordgo.MessageEmbed{
 				Title:       "Role Request - Denied",
-				Description: "The request to add <@&" + roleID + "> to <@" + targetUserID + "> has been denied.",
+				Description: "The request to add <@&" + roleID + "> to <@" + targetUserID + "> has been denied by <@" + i.Member.User.ID + ">.",
 				Color:       0xff0000,
 			}
 
@@ -177,7 +177,7 @@ func RoleButtonInteractionCreate(s *discordgo.Session, i *discordgo.InteractionC
 			// Update the embed
 			embed := &discordgo.MessageEmbed{
 				Title:       "Role Removal Request - Approved",
-				Description: "The request to remove the `@" + roleID + "` role from " + "<@" + targetUserID + "> has been approved.",
+				Description: "The request to remove the <@&" + roleID + "> role from " + "<@" + targetUserID + "> has been approved by <@" + i.Member.User.ID + ">.",
 				Color:       0x00ff00,
 			}
 
@@ -230,7 +230,7 @@ func RoleButtonInteractionCreate(s *discordgo.Session, i *discordgo.InteractionC
 				// Update the embed
 				embed := &discordgo.MessageEmbed{
 					Title:       "Role Removal Request - Denied",
-					Description: "The request to remove <@&" + roleID + "> from <@" + targetUserID + "> has been denied.",
+					Description: "The request to remove <@&" + roleID + "> from <@" + targetUserID + "> has been denied by <@" + i.Member.User.ID + ">.",
 					Color:       0xff0000,
 				}
 

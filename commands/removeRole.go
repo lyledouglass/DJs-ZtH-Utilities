@@ -49,7 +49,7 @@ func RemoveRole(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			if contains(rolesRequiringApproval, role.ID) {
 				embed := &discordgo.MessageEmbed{
 					Title:       "Role Removal Request",
-					Description: user.Username + " has requested to remove the `@" + role.Name + "` role from " + "`" + targetMember.User.Username + "`",
+					Description: "<@" + user.ID + "> has requested to remove the <@&" + role.ID + "> role from " + "<@" + targetMember.User.ID + ">",
 					Color:       0xff0000,
 					Fields: []*discordgo.MessageEmbedField{
 						{
@@ -105,8 +105,29 @@ func RemoveRole(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				return
 			}
 
-			executorReturnMessage := "The role `@" + role.Name + "` has been removed from " + "`" + targetMember.User.Username + "`"
-			successMessage := "`" + user.Username + "` has removed the role `@" + role.Name + "` from " + "`" + targetMember.User.Username + "`"
+			executorReturnMessage := "The role `@" + role.Name + "` has been removed from " + "<@" + targetMember.User.ID + ">"
+
+			successEmbed := &discordgo.MessageEmbed{
+				Title: "Role Removed",
+				Color: 0xff0000,
+				Fields: []*discordgo.MessageEmbedField{
+					{
+						Name:   "Removed By",
+						Value:  "<@" + user.ID + ">",
+						Inline: false,
+					},
+					{
+						Name:   "Target User",
+						Value:  "<@" + targetUser.ID + ">",
+						Inline: false,
+					},
+					{
+						Name:   "Role",
+						Value:  "<@&" + role.ID + ">",
+						Inline: false,
+					},
+				},
+			}
 
 			// Send a follow-up message to the user
 			_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
@@ -116,7 +137,9 @@ func RemoveRole(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			if err != nil {
 				log.Println("Error sending follow-up message:", err)
 			}
-			_, err = s.ChannelMessageSend(viper.GetString("accessControlChannelId"), successMessage)
+			_, err = s.ChannelMessageSendComplex(viper.GetString("accessControlChannelId"), &discordgo.MessageSend{
+				Embeds: []*discordgo.MessageEmbed{successEmbed},
+			})
 			if err != nil {
 				log.Println("Error sending message:", err)
 			}
