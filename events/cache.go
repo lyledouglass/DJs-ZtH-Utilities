@@ -5,7 +5,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/spf13/viper"
 )
 
 func init() {
@@ -21,14 +20,19 @@ func init() {
 }
 
 func CacheGuildMembers(s *discordgo.Session, guildId string) {
-	members, err := s.GuildMembers(guildId, "", 1000)
-	if err != nil {
-		log.Printf("Error fetching guild members: %s", err)
-	}
-	for _, member := range members {
-		if hasRole(member.Roles, viper.GetString("communityMemberRole")) {
+	var after string
+	for {
+		members, err := s.GuildMembers(guildId, after, 1000)
+		if err != nil {
+			log.Printf("Error fetching guild members: %s", err)
+		}
+		if len(members) == 0 {
+			break
+		}
+		for _, member := range members {
 			memberCache.Add(member.User.ID, member)
 			log.Printf("Cached member: %s", member.User.ID)
 		}
+		after = members[len(members)-1].User.ID
 	}
 }
