@@ -179,8 +179,20 @@ func contains(slice []string, item string) bool {
 func CheckApprovedRole(s *discordgo.Session, m *discordgo.Member) (approved bool) {
 	approvedRoles := viper.GetStringSlice("rolesRequiringApproval")
 	userRoles := m.Roles
+	resultChan := make(chan bool, len(userRoles))
+
 	for _, role := range userRoles {
-		if contains(approvedRoles, role) {
+		go func(r string) {
+			if contains(approvedRoles, r) {
+				resultChan <- true
+			} else {
+				resultChan <- false
+			}
+		}(role)
+	}
+
+	for range userRoles {
+		if <-resultChan {
 			return true
 		}
 	}

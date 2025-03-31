@@ -2,6 +2,7 @@ package events
 
 import (
 	"log"
+	"sync"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -117,10 +118,16 @@ func RegisterCommands(s *discordgo.Session) {
 			},
 		},
 	}
+	var wg sync.WaitGroup
 	for _, command := range commands {
-		_, err := s.ApplicationCommandCreate(s.State.User.ID, "", command)
-		if err != nil {
-			log.Fatal("Cannot create command: ", err)
-		}
+		wg.Add(1)
+		go func(cmd *discordgo.ApplicationCommand) {
+			defer wg.Done()
+			_, err := s.ApplicationCommandCreate(s.State.User.ID, "", cmd)
+			log.Println("Registering command:", cmd.Name)
+			if err != nil {
+				log.Fatal("Cannot create command: ", err)
+			}
+		}(command)
 	}
 }
