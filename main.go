@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/spf13/viper"
@@ -15,34 +16,19 @@ import (
 func onReady(s *discordgo.Session, event *discordgo.Ready) {
 	log.Println("Bot is ready")
 
-	// Set the bot's status to total members with the community role
 	guild, err := s.Guild(viper.GetString("guildID"))
-	events.CacheGuildMembers(s, guild.ID)
 	if err != nil {
 		log.Println("Error getting guild:", err)
 		return
 	}
-	members, err := s.GuildMembers(guild.ID, "", 1000)
-	if err != nil {
-		log.Println("Error getting guild members:", err)
-		return
-	}
-	roleID := viper.GetString("communityMemberRole")
-	count := 0
-	for _, member := range members {
-		for _, role := range member.Roles {
-			if role == roleID {
-				count++
-				break
-			}
-		}
-	}
-	totalMembers := count
-	status := fmt.Sprintf("Community Memebers: %d", totalMembers)
-	err = s.UpdateCustomStatus(status)
-	if err != nil {
-		log.Println("Error setting status:", err)
-	}
+
+	// Set up cache for guild members
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		events.CacheGuildMembers(s, guild.ID)
+	}()
 	events.RegisterCommands(s)
 }
 

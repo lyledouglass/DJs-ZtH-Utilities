@@ -35,4 +35,5 @@ func CacheGuildMembers(s *discordgo.Session, guildId string) {
 		}
 		after = members[len(members)-1].User.ID
 	}
+	SetMemberCount(s, &discordgo.Guild{ID: guildId})
 }
