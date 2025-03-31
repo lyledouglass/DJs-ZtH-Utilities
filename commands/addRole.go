@@ -15,14 +15,8 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 			role := i.ApplicationCommandData().Options[1].RoleValue(s, i.GuildID)
 			user := i.Member.User
 
-			// Fetch the complete user object
-			targetMember, err := s.GuildMember(i.GuildID, targetUser.ID)
-			if err != nil {
-				log.Println("Error fetching target user:", err)
-			}
-
 			// Acknowledge the interaction first to avoid timeout
-			err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Flags: discordgo.MessageFlagsEphemeral,
@@ -31,6 +25,24 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 			if err != nil {
 				log.Println("Error acknowledging interaction:", err)
 				return
+			}
+
+			// Verify that the user has permission to add roles
+			if !CheckApprovedRole(s, i.Member) {
+				_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+					Content: "You do not have permission to add roles.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				})
+				if err != nil {
+					log.Println("Error sending follow-up message:", err)
+				}
+				break
+			}
+
+			// Fetch the complete user object
+			targetMember, err := s.GuildMember(i.GuildID, targetUser.ID)
+			if err != nil {
+				log.Println("Error fetching target user:", err)
 			}
 
 			// Check if the user has the role already
@@ -158,6 +170,17 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 func contains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+func CheckApprovedRole(s *discordgo.Session, m *discordgo.Member) (approved bool) {
+	approvedRoles := viper.GetStringSlice("rolesRequiringApproval")
+	userRoles := m.Roles
+	for _, role := range userRoles {
+		if contains(approvedRoles, role) {
 			return true
 		}
 	}

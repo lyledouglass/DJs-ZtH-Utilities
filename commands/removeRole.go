@@ -16,6 +16,18 @@ func RemoveRole(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			role := i.ApplicationCommandData().Options[1].RoleValue(s, i.GuildID)
 			user := i.Member.User
 
+			// Verify that the user has permission to remove roles
+			if !CheckApprovedRole(s, i.Member) {
+				_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+					Content: "You do not have permission to remove roles.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				})
+				if err != nil {
+					log.Println("Error sending follow-up message:", err)
+				}
+				break
+			}
+
 			// Fetch the complete user object
 			targetMember, err := s.GuildMember(i.GuildID, targetUser.ID)
 			if err != nil {

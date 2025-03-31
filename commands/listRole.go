@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"log"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -12,6 +13,29 @@ func ListRole(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		case "listrole":
 			// Fetch the role from the interaction
 			role := i.ApplicationCommandData().Options[0].RoleValue(s, i.GuildID)
+
+			// Acknowledge the interaction first to avoid timeout
+			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Flags: discordgo.MessageFlagsEphemeral,
+				},
+			})
+			if err != nil {
+				log.Println("Error acknowledging interaction:", err)
+				return
+			}
+
+			if !CheckApprovedRole(s, i.Member) {
+				_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+					Content: "You do not have permission to list members with roles.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				})
+				if err != nil {
+					log.Println("Error sending follow-up message:", err)
+				}
+				return
+			}
 
 			// Fetch all members with the role
 			members, err := s.GuildMembers(i.GuildID, "", 1000)
@@ -33,11 +57,9 @@ func ListRole(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			}
 
 			// Send the list of members
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "Members with the role `@" + role.Name + "`:\n" + "```\n" + strings.Join(memberList, "\n") + "```",
-				},
+			_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+				Content: "Members with the role `@" + role.Name + "`:\n" + "```\n" + strings.Join(memberList, "\n") + "```",
+				Flags:   discordgo.MessageFlagsEphemeral,
 			})
 		}
 	}
