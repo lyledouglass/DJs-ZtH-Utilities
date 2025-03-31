@@ -14,7 +14,6 @@ import (
 
 func onReady(s *discordgo.Session, event *discordgo.Ready) {
 	log.Println("Bot is ready")
-	events.RegisterCommands(s)
 
 	// Set the bot's status to total members with the community role
 	guild, err := s.Guild(viper.GetString("guildID"))
@@ -44,6 +43,7 @@ func onReady(s *discordgo.Session, event *discordgo.Ready) {
 	if err != nil {
 		log.Println("Error setting status:", err)
 	}
+	events.RegisterCommands(s)
 }
 
 func main() {
@@ -85,7 +85,7 @@ func main() {
 	discord.Open()
 	defer discord.Close()
 
-	fmt.Println("Bot is now running. Press CTRL+C to exit.")
+	log.Println("Bot is now running. Press CTRL+C to exit.")
 	// Wait for a signal to exit
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
