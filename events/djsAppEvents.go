@@ -37,6 +37,16 @@ func pinDJAppEmbed(s *discordgo.Session, threadId string) {
 	}
 }
 
+func addLabelToThread(s *discordgo.Session, threadId string, label string) {
+	_, err := s.ChannelEditComplex(threadId, &discordgo.ChannelEdit{
+		AppliedTags: &[]string{label}, // Add the label to the thread
+	})
+	if err != nil {
+		log.Println("Error adding label to thread:", err)
+		return
+	}
+}
+
 func OnDJsThreadCreate(s *discordgo.Session, t *discordgo.ThreadCreate) {
 	djsChannelId := viper.GetString("djsAppForumChannelId")
 	if t.ParentID == djsChannelId {
@@ -47,6 +57,7 @@ func OnDJsThreadCreate(s *discordgo.Session, t *discordgo.ThreadCreate) {
 			// Run pinDJAppEmbed first to make sure it pins the embed
 			pinDJAppEmbed(s, t.ID)
 			newDJsAppPing(s, t.Channel)
+			addLabelToThread(s, t.ID, viper.GetString("djsAppLabel"))
 			processedThreads[t.ID] = true
 		}
 	}
