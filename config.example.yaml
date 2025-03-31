@@ -1,0 +1,61 @@
+botToken: ""
+guildId: ""
+
+memberCacheUpdateDelay: 300
+
+# Access Control
+accessControlChannelId: ""
+
+# Access Control Roles - Used for SCL approvals as well as access to the
+# add/remove role function
+rolesRequiringApproval:
+  - ""
+
+# Roles that can be added/removed by the bot without approval
+approvedRoles:
+  - ""
+
+roleApproverId: ""
+
+# Community Member role
+communityMemberRole: ""
+communityMemberGeneralChannelId: ""
+
+# Moderation Channel
+moderationChannelId: ""
+moderatorRoleId: ""
+
+# Death Jesters
+djsMemberRoleId: ""
+djsAppForumChannelId: ""
+djsAppLabel: ""
+
+# Tickets
+ticketChannelId: ""
+
+# Champion Role
+championRoleId: ""
+
+# Audit Log
+auditLogChannelId: ""
+
+# Leadership Channels - suggestion channel
+leadershipChannelIds:
+  - id: ""
+    name: "rocket_leadership"
+  - id: ""
+    name: "gravity_leadership"
+  - id: ""
+    name: "community_leadership"
+  - id: ""
+    name: "eclipse_leadership"
+  - id: ""
+    name: "phoenix_leadership"
+  - id: ""
+    name: "ramrod_leadership"
+  - id: ""
+    name: "death_jester_leadership"
+  - id: ""
+    name: "integrity_leadership"
+  - id: ""
+    name: "last_call_leadership"
