@@ -3,6 +3,7 @@ package main
 import (
 	"djs-zth-utilities/commands"
 	"djs-zth-utilities/events"
+	"djs-zth-utilities/posts"
 	"fmt"
 	"log"
 	"os"
@@ -30,6 +31,18 @@ func onReady(s *discordgo.Session, event *discordgo.Ready) {
 		events.CacheGuildMembers(s, guild.ID)
 	}()
 	events.RegisterCommands(s)
+
+	// Post the role selection embed
+	err = posts.PostRoleSelectionEmbed(s)
+	if err != nil {
+		log.Printf("Error posting role selection embed: %v", err)
+	}
+
+	// Post the game selection embed
+	err = posts.PostGameSelectionEmbed(s)
+	if err != nil {
+		log.Printf("Error posting game selection embed: %v", err)
+	}
 }
 
 func main() {
@@ -67,6 +80,8 @@ func main() {
 	discord.AddHandler(events.OnMessageDelete)
 	discord.AddHandler(events.OnMessageCreate)
 	discord.AddHandler(events.OnMessageUpdate)
+	discord.AddHandler(posts.HandleRoleSelection)
+	discord.AddHandler(posts.HandleGameSelection)
 
 	discord.Open()
 	defer discord.Close()
