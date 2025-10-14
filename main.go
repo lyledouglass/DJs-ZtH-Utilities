@@ -37,13 +37,14 @@ func onReady(s *discordgo.Session, event *discordgo.Ready) {
 	if err != nil {
 		log.Printf("Error posting role selection embed: %v", err)
 	}
-
-	// Post the game selection embed
-	err = posts.PostGameSelectionEmbed(s)
+	err = posts.PostKeySelectionEmbed(s)
 	if err != nil {
 		log.Printf("Error posting game selection embed: %v", err)
 	}
-
+	err = posts.PostValorSelectionEmbed(s)
+	if err != nil {
+		log.Printf("Error posting game selection embed: %v", err)
+	}
 	// Set up embed remover
 	posts.EmbedRemover(s)
 }
@@ -84,7 +85,8 @@ func main() {
 	discord.AddHandler(events.OnMessageCreate)
 	discord.AddHandler(events.OnMessageUpdate)
 	discord.AddHandler(posts.HandleRoleSelection)
-	discord.AddHandler(posts.HandleGameSelection)
+	discord.AddHandler(posts.HandleKeySelection)
+	discord.AddHandler(posts.HandleValorSelection)
 
 	discord.Open()
 	defer discord.Close()
