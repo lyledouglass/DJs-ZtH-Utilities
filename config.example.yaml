@@ -59,3 +59,20 @@ leadershipChannelIds:
     name: "integrity_leadership"
   - id: ""
     name: "last_call_leadership"
+
+# Role Selection for the masses
+roleSelectionChannelId: ""
+openRoles:
+  "role_id_here": "Example Role Label to be displayed"
+
+
+# LFG Channel ID
+lfgChannelId: ""
+
+# Game Selection
+gameSelectionChannelId: ""
+gameRoles:
+  "": "Game Name label to be displayed"
+
+embedRemoveChannels:
+  - ""

@@ -67,7 +67,7 @@ go run main.go
 1. Pull your image onto your host you will be running the bot on. If you built the image locally, you can skip this step. If you are pulling from a registry, use the following command:
 
    ```bash
-   docker pull djzth-utilities-bot
+   docker pull ghcr.io/lyledouglass/djzth-utilities-bot:v1.0.1
    ```
 
 2. Ensure you have a configured `config.json` file in your current directory with the correct configuration for your bot
