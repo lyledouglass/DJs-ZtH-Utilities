@@ -218,7 +218,7 @@ func PostKeySelectionEmbed(s *discordgo.Session) error {
 
 	embed := &discordgo.MessageEmbed{
 		Title:       "Mythic+ Key Selection",
-		Description: "Select roles for Mythic+ dungeons and delves. Choose the difficulty levels you're comfortable with to get pinged for relevant groups in <#" + viper.GetString("lfgChannelId") + ">.",
+		Description: "Select roles for Mythic+ dungeons and delves. Choose the difficulty levels you're comfortable with to get pinged for relevant groups in <#" + viper.GetString("lfgChannelId") + ">.\n\n**To remove all roles:** Click the dropdown and then click outside without selecting any role, or select a different role to replace your current selection.",
 		Color:       0xff6600,
 	}
 
@@ -431,6 +431,32 @@ func HandleRoleSelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	// Get all raid/PvP roles for comparison
 	openRoles := viper.GetStringMapString("openRoles")
+
+	// Check which roles user currently has
+	userRoles := make(map[string]bool)
+	for _, role := range member.Roles {
+		userRoles[role] = true
+	}
+
+	// Debug: Log what roles are actually selected
+	log.Printf("User %s selected %d roles: %v", userID, len(selectedRoleIDs), selectedRoleIDs)
+	for _, selectedID := range selectedRoleIDs {
+		if roleName, exists := openRoles[selectedID]; exists {
+			log.Printf("Selected role: %s (%s)", selectedID, roleName)
+		} else {
+			log.Printf("Selected unknown role: %s", selectedID)
+		}
+	}
+
+	// Special handling: if user selects the same role they already have, treat it as deselection
+	if len(selectedRoleIDs) == 1 {
+		selectedRoleID := selectedRoleIDs[0]
+		if userRoles[selectedRoleID] {
+			log.Printf("User %s reselected role %s they already have - treating as deselection", userID, selectedRoleID)
+			selectedRoleIDs = []string{} // Clear selection to trigger removal
+		}
+	}
+
 	raidPvpKeywords := []string{"Raid", "BGs", "Arena", "RGB"}
 	var allRaidPvpRoles []string
 	for roleID, roleName := range openRoles {
@@ -443,7 +469,7 @@ func HandleRoleSelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	// Check which roles user currently has
-	userRoles := make(map[string]bool)
+	userRoles = make(map[string]bool)
 	for _, role := range member.Roles {
 		userRoles[role] = true
 	}
@@ -454,31 +480,44 @@ func HandleRoleSelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		shouldHaveRole := false
 
 		// Check if this role is selected
-		for _, selectedRole := range selectedRoleIDs {
-			if selectedRole == roleID {
-				shouldHaveRole = true
-				break
+		if len(selectedRoleIDs) > 0 {
+			for _, selectedRole := range selectedRoleIDs {
+				if selectedRole == roleID {
+					shouldHaveRole = true
+					break
+				}
 			}
 		}
+		// If selectedRoleIDs is empty, shouldHaveRole remains false for all roles
+
+		log.Printf("Processing role %s (%s): hasRole=%v, shouldHaveRole=%v, selectedCount=%d", roleID, openRoles[roleID], hasRole, shouldHaveRole, len(selectedRoleIDs))
 
 		if hasRole && !shouldHaveRole {
 			// Remove role
+			log.Printf("Attempting to remove role %s from user %s", roleID, userID)
 			err = s.GuildMemberRoleRemove(guildID, userID, roleID)
 			if err != nil {
 				log.Printf("Failed to remove role %s from user %s: %v", roleID, userID, err)
+				// Continue processing other roles even if one fails
 			} else {
 				removedRoles = append(removedRoles, openRoles[roleID])
+				userRoles[roleID] = false // Update cached state
 				log.Printf("Successfully removed role %s from user %s", roleID, userID)
 			}
 		} else if !hasRole && shouldHaveRole {
 			// Add role
+			log.Printf("Attempting to add role %s to user %s", roleID, userID)
 			err = s.GuildMemberRoleAdd(guildID, userID, roleID)
 			if err != nil {
 				log.Printf("Failed to add role %s to user %s: %v", roleID, userID, err)
+				// Continue processing other roles even if one fails
 			} else {
 				addedRoles = append(addedRoles, openRoles[roleID])
+				userRoles[roleID] = true // Update cached state
 				log.Printf("Successfully added role %s to user %s", roleID, userID)
 			}
+		} else {
+			log.Printf("No action needed for role %s", roleID)
 		}
 	}
 
@@ -528,21 +567,23 @@ func HandleRoleSelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	})
 
-	// Create response message
+	// Create response message with more detailed feedback
 	var responseText string
 	if len(addedRoles) > 0 || len(removedRoles) > 0 {
 		if len(addedRoles) > 0 {
-			responseText += "Added: " + strings.Join(addedRoles, ", ")
+			responseText += "✅ Added: " + strings.Join(addedRoles, ", ")
 		}
 		if len(removedRoles) > 0 {
 			if responseText != "" {
 				responseText += "\n"
 			}
-			responseText += "Removed: " + strings.Join(removedRoles, ", ")
+			responseText += "❌ Removed: " + strings.Join(removedRoles, ", ")
 		}
 	} else {
-		responseText = "No role changes made."
+		responseText = "ℹ️ No role changes made. To remove roles, select a different role or click the dropdown and then click outside without selecting anything."
 	}
+
+	log.Printf("Sending response to user %s: %s", userID, responseText)
 
 	// Send ephemeral follow-up message to the user
 	s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
@@ -600,6 +641,32 @@ func HandleKeySelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	// Get all key roles for comparison
 	openRoles := viper.GetStringMapString("openRoles")
+
+	// Check which roles user currently has
+	userRoles := make(map[string]bool)
+	for _, role := range member.Roles {
+		userRoles[role] = true
+	}
+
+	// Debug: Log what roles are actually selected
+	log.Printf("User %s selected %d roles: %v", userID, len(selectedRoleIDs), selectedRoleIDs)
+	for _, selectedID := range selectedRoleIDs {
+		if roleName, exists := openRoles[selectedID]; exists {
+			log.Printf("Selected role: %s (%s)", selectedID, roleName)
+		} else {
+			log.Printf("Selected unknown role: %s", selectedID)
+		}
+	}
+
+	// Special handling: if user selects the same role they already have, treat it as deselection
+	if len(selectedRoleIDs) == 1 {
+		selectedRoleID := selectedRoleIDs[0]
+		if userRoles[selectedRoleID] {
+			log.Printf("User %s reselected role %s they already have - treating as deselection", userID, selectedRoleID)
+			selectedRoleIDs = []string{} // Clear selection to trigger removal
+		}
+	}
+
 	keyKeywords := []string{"Key", "Delves"}
 	var allKeyRoles []string
 	for roleID, roleName := range openRoles {
@@ -612,7 +679,7 @@ func HandleKeySelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	// Check which roles user currently has
-	userRoles := make(map[string]bool)
+	userRoles = make(map[string]bool)
 	for _, role := range member.Roles {
 		userRoles[role] = true
 	}
@@ -623,29 +690,38 @@ func HandleKeySelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		shouldHaveRole := false
 
 		// Check if this role is selected
-		for _, selectedRole := range selectedRoleIDs {
-			if selectedRole == roleID {
-				shouldHaveRole = true
-				break
+		if len(selectedRoleIDs) > 0 {
+			for _, selectedRole := range selectedRoleIDs {
+				if selectedRole == roleID {
+					shouldHaveRole = true
+					break
+				}
 			}
 		}
+		// If selectedRoleIDs is empty, shouldHaveRole remains false for all roles
+
+		log.Printf("Processing key role %s (%s): hasRole=%v, shouldHaveRole=%v, selectedCount=%d", roleID, openRoles[roleID], hasRole, shouldHaveRole, len(selectedRoleIDs))
 
 		if hasRole && !shouldHaveRole {
 			// Remove role
+			log.Printf("Attempting to remove key role %s from user %s", roleID, userID)
 			err = s.GuildMemberRoleRemove(guildID, userID, roleID)
 			if err != nil {
 				log.Printf("Failed to remove key role %s from user %s: %v", roleID, userID, err)
 			} else {
 				removedRoles = append(removedRoles, openRoles[roleID])
+				userRoles[roleID] = false // Update cached state
 				log.Printf("Successfully removed key role %s from user %s", roleID, userID)
 			}
 		} else if !hasRole && shouldHaveRole {
 			// Add role
+			log.Printf("Attempting to add key role %s to user %s", roleID, userID)
 			err = s.GuildMemberRoleAdd(guildID, userID, roleID)
 			if err != nil {
 				log.Printf("Failed to add key role %s to user %s: %v", roleID, userID, err)
 			} else {
 				addedRoles = append(addedRoles, openRoles[roleID])
+				userRoles[roleID] = true // Update cached state
 				log.Printf("Successfully added key role %s to user %s", roleID, userID)
 			}
 		}
@@ -685,7 +761,7 @@ func HandleKeySelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Update the original message to reset the select menu
 	embed := &discordgo.MessageEmbed{
 		Title:       "Mythic+ Key Selection",
-		Description: "Select roles for Mythic+ dungeons and delves. Choose the difficulty levels you're comfortable with to get pinged for relevant groups in <#" + viper.GetString("lfgChannelId") + ">.",
+		Description: "Select roles for Mythic+ dungeons and delves. Choose the difficulty levels you're comfortable with to get pinged for relevant groups in <#" + viper.GetString("lfgChannelId") + ">.\n\n**To remove all roles:** Click the dropdown and then click outside without selecting any role, or select a different role to replace your current selection.",
 		Color:       0xff6600,
 	}
 
@@ -697,20 +773,20 @@ func HandleKeySelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	})
 
-	// Create response message
+	// Create response message with more detailed feedback
 	var responseText string
 	if len(addedRoles) > 0 || len(removedRoles) > 0 {
 		if len(addedRoles) > 0 {
-			responseText += "Added: " + strings.Join(addedRoles, ", ")
+			responseText += "✅ Added: " + strings.Join(addedRoles, ", ")
 		}
 		if len(removedRoles) > 0 {
 			if responseText != "" {
 				responseText += "\n"
 			}
-			responseText += "Removed: " + strings.Join(removedRoles, ", ")
+			responseText += "❌ Removed: " + strings.Join(removedRoles, ", ")
 		}
 	} else {
-		responseText = "No role changes made."
+		responseText = "ℹ️ No role changes made. To remove roles, select a different role or click the dropdown and then click outside without selecting anything."
 	}
 
 	// Send ephemeral follow-up message to the user
@@ -769,6 +845,32 @@ func HandleValorSelection(s *discordgo.Session, i *discordgo.InteractionCreate) 
 
 	// Get all valor/collection roles for comparison
 	openRoles := viper.GetStringMapString("openRoles")
+
+	// Check which roles user currently has
+	userRoles := make(map[string]bool)
+	for _, role := range member.Roles {
+		userRoles[role] = true
+	}
+
+	// Debug: Log what roles are actually selected
+	log.Printf("User %s selected %d roles: %v", userID, len(selectedRoleIDs), selectedRoleIDs)
+	for _, selectedID := range selectedRoleIDs {
+		if roleName, exists := openRoles[selectedID]; exists {
+			log.Printf("Selected role: %s (%s)", selectedID, roleName)
+		} else {
+			log.Printf("Selected unknown role: %s", selectedID)
+		}
+	}
+
+	// Special handling: if user selects the same role they already have, treat it as deselection
+	if len(selectedRoleIDs) == 1 {
+		selectedRoleID := selectedRoleIDs[0]
+		if userRoles[selectedRoleID] {
+			log.Printf("User %s reselected role %s they already have - treating as deselection", userID, selectedRoleID)
+			selectedRoleIDs = []string{} // Clear selection to trigger removal
+		}
+	}
+
 	otherKeywords := []string{"Valor", "Collectors"}
 	var allOtherRoles []string
 	for roleID, roleName := range openRoles {
@@ -781,7 +883,7 @@ func HandleValorSelection(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	}
 
 	// Check which roles user currently has
-	userRoles := make(map[string]bool)
+	userRoles = make(map[string]bool)
 	for _, role := range member.Roles {
 		userRoles[role] = true
 	}
@@ -792,29 +894,38 @@ func HandleValorSelection(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		shouldHaveRole := false
 
 		// Check if this role is selected
-		for _, selectedRole := range selectedRoleIDs {
-			if selectedRole == roleID {
-				shouldHaveRole = true
-				break
+		if len(selectedRoleIDs) > 0 {
+			for _, selectedRole := range selectedRoleIDs {
+				if selectedRole == roleID {
+					shouldHaveRole = true
+					break
+				}
 			}
 		}
+		// If selectedRoleIDs is empty, shouldHaveRole remains false for all roles
+
+		log.Printf("Processing activity role %s (%s): hasRole=%v, shouldHaveRole=%v, selectedCount=%d", roleID, openRoles[roleID], hasRole, shouldHaveRole, len(selectedRoleIDs))
 
 		if hasRole && !shouldHaveRole {
 			// Remove role
+			log.Printf("Attempting to remove activity role %s from user %s", roleID, userID)
 			err = s.GuildMemberRoleRemove(guildID, userID, roleID)
 			if err != nil {
 				log.Printf("Failed to remove activity role %s from user %s: %v", roleID, userID, err)
 			} else {
 				removedRoles = append(removedRoles, openRoles[roleID])
+				userRoles[roleID] = false // Update cached state
 				log.Printf("Successfully removed activity role %s from user %s", roleID, userID)
 			}
 		} else if !hasRole && shouldHaveRole {
 			// Add role
+			log.Printf("Attempting to add activity role %s to user %s", roleID, userID)
 			err = s.GuildMemberRoleAdd(guildID, userID, roleID)
 			if err != nil {
 				log.Printf("Failed to add activity role %s to user %s: %v", roleID, userID, err)
 			} else {
 				addedRoles = append(addedRoles, openRoles[roleID])
+				userRoles[roleID] = true // Update cached state
 				log.Printf("Successfully added activity role %s to user %s", roleID, userID)
 			}
 		}
@@ -866,20 +977,20 @@ func HandleValorSelection(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		},
 	})
 
-	// Create response message
+	// Create response message with more detailed feedback
 	var responseText string
 	if len(addedRoles) > 0 || len(removedRoles) > 0 {
 		if len(addedRoles) > 0 {
-			responseText += "Added: " + strings.Join(addedRoles, ", ")
+			responseText += "✅ Added: " + strings.Join(addedRoles, ", ")
 		}
 		if len(removedRoles) > 0 {
 			if responseText != "" {
 				responseText += "\n"
 			}
-			responseText += "Removed: " + strings.Join(removedRoles, ", ")
+			responseText += "❌ Removed: " + strings.Join(removedRoles, ", ")
 		}
 	} else {
-		responseText = "No role changes made."
+		responseText = "ℹ️ No role changes made. To remove roles, select a different role or click the dropdown and then click outside without selecting anything."
 	}
 
 	// Send ephemeral follow-up message to the user
@@ -936,8 +1047,35 @@ func HandlePronounSelection(s *discordgo.Session, i *discordgo.InteractionCreate
 	var addedRoles, removedRoles []string
 	selectedRoleIDs := data.Values
 
-	// Get all pronoun roles for comparison
+	// Get openRoles and setup userRoles first
 	openRoles := viper.GetStringMapString("openRoles")
+
+	// Check which roles user currently has
+	userRoles := make(map[string]bool)
+	for _, role := range member.Roles {
+		userRoles[role] = true
+	}
+
+	// Debug: Log what roles are actually selected
+	log.Printf("User %s selected %d roles: %v", userID, len(selectedRoleIDs), selectedRoleIDs)
+	for _, selectedID := range selectedRoleIDs {
+		if roleName, exists := openRoles[selectedID]; exists {
+			log.Printf("Selected role: %s (%s)", selectedID, roleName)
+		} else {
+			log.Printf("Selected unknown role: %s", selectedID)
+		}
+	}
+
+	// Special handling: if user selects the same role they already have, treat it as deselection
+	if len(selectedRoleIDs) == 1 {
+		selectedRoleID := selectedRoleIDs[0]
+		if userRoles[selectedRoleID] {
+			log.Printf("User %s reselected role %s they already have - treating as deselection", userID, selectedRoleID)
+			selectedRoleIDs = []string{} // Clear selection to trigger removal
+		}
+	}
+
+	// Get all pronoun roles for comparison
 	pronounKeywords := []string{"They/Them", "She/Her", "He/Him", "Other/Ask Me", "Any"}
 	var allPronounRoles []string
 	for roleID, roleName := range openRoles {
@@ -950,7 +1088,7 @@ func HandlePronounSelection(s *discordgo.Session, i *discordgo.InteractionCreate
 	}
 
 	// Check which roles user currently has
-	userRoles := make(map[string]bool)
+	userRoles = make(map[string]bool)
 	for _, role := range member.Roles {
 		userRoles[role] = true
 	}
@@ -961,29 +1099,38 @@ func HandlePronounSelection(s *discordgo.Session, i *discordgo.InteractionCreate
 		shouldHaveRole := false
 
 		// Check if this role is selected
-		for _, selectedRole := range selectedRoleIDs {
-			if selectedRole == roleID {
-				shouldHaveRole = true
-				break
+		if len(selectedRoleIDs) > 0 {
+			for _, selectedRole := range selectedRoleIDs {
+				if selectedRole == roleID {
+					shouldHaveRole = true
+					break
+				}
 			}
 		}
+		// If selectedRoleIDs is empty, shouldHaveRole remains false for all roles
+
+		log.Printf("Processing pronoun role %s (%s): hasRole=%v, shouldHaveRole=%v, selectedCount=%d", roleID, openRoles[roleID], hasRole, shouldHaveRole, len(selectedRoleIDs))
 
 		if hasRole && !shouldHaveRole {
 			// Remove role
+			log.Printf("Attempting to remove pronoun role %s from user %s", roleID, userID)
 			err = s.GuildMemberRoleRemove(guildID, userID, roleID)
 			if err != nil {
 				log.Printf("Failed to remove pronoun role %s from user %s: %v", roleID, userID, err)
 			} else {
 				removedRoles = append(removedRoles, openRoles[roleID])
+				userRoles[roleID] = false // Update cached state
 				log.Printf("Successfully removed pronoun role %s from user %s", roleID, userID)
 			}
 		} else if !hasRole && shouldHaveRole {
 			// Add role
+			log.Printf("Attempting to add pronoun role %s to user %s", roleID, userID)
 			err = s.GuildMemberRoleAdd(guildID, userID, roleID)
 			if err != nil {
 				log.Printf("Failed to add pronoun role %s to user %s: %v", roleID, userID, err)
 			} else {
 				addedRoles = append(addedRoles, openRoles[roleID])
+				userRoles[roleID] = true // Update cached state
 				log.Printf("Successfully added pronoun role %s to user %s", roleID, userID)
 			}
 		}
@@ -1037,20 +1184,20 @@ func HandlePronounSelection(s *discordgo.Session, i *discordgo.InteractionCreate
 		},
 	})
 
-	// Create response message
+	// Create response message with more detailed feedback
 	var responseText string
 	if len(addedRoles) > 0 || len(removedRoles) > 0 {
 		if len(addedRoles) > 0 {
-			responseText += "Added: " + strings.Join(addedRoles, ", ")
+			responseText += "✅ Added: " + strings.Join(addedRoles, ", ")
 		}
 		if len(removedRoles) > 0 {
 			if responseText != "" {
 				responseText += "\n"
 			}
-			responseText += "Removed: " + strings.Join(removedRoles, ", ")
+			responseText += "❌ Removed: " + strings.Join(removedRoles, ", ")
 		}
 	} else {
-		responseText = "No pronoun changes made."
+		responseText = "ℹ️ No pronoun changes made."
 	}
 
 	// Send ephemeral follow-up message to the user
