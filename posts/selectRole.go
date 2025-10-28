@@ -122,7 +122,7 @@ func PostRoleSelectionEmbed(s *discordgo.Session) error {
 	}
 
 	// Check if embed already exists
-	exists, err := checkEmbedExists(s, channelID, "LFG Role Selection")
+	exists, err := checkEmbedExists(s, channelID, "Raid and PvP Role Selection")
 	if err != nil {
 		log.Printf("Error checking if role selection embed exists: %v", err)
 	} else if exists {
@@ -149,7 +149,7 @@ func PostRoleSelectionEmbed(s *discordgo.Session) error {
 	sortRoleOptions(options)
 
 	embed := &discordgo.MessageEmbed{
-		Title:       "LFG Role Selection",
+		Title:       "Raid and PvP Role Selection",
 		Description: "Select roles for raiding and PvP content. Once selected, you'll be able to be pinged in the <#" + viper.GetString("lfgChannelId") + "> channel for relevant group content.",
 		Color:       0x00ff00,
 	}
