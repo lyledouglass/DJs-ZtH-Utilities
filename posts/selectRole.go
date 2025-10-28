@@ -312,6 +312,76 @@ func PostValorSelectionEmbed(s *discordgo.Session) error {
 	return err
 }
 
+// PostPronounSelectionEmbed posts an embed with a dropdown for pronoun selection
+func PostPronounSelectionEmbed(s *discordgo.Session) error {
+	channelID := viper.GetString("roleSelectionChannelId")
+	openRoles := viper.GetStringMapString("openRoles")
+
+	if channelID == "" {
+		return fmt.Errorf("roleSelectionChannelId not configured")
+	}
+
+	if len(openRoles) == 0 {
+		return fmt.Errorf("openRoles not configured")
+	}
+
+	// Check if embed already exists
+	exists, err := checkEmbedExists(s, channelID, "Pronoun Selection")
+	if err != nil {
+		log.Printf("Error checking if pronoun selection embed exists: %v", err)
+	} else if exists {
+		log.Println("Pronoun selection embed already exists, skipping post")
+		return nil
+	}
+
+	// Filter for pronoun roles only
+	var options []discordgo.SelectMenuOption
+	pronounKeywords := []string{"They/Them", "She/Her", "He/Him", "Other/Ask Me", "Any"}
+	for roleID, roleName := range openRoles {
+		for _, keyword := range pronounKeywords {
+			if strings.Contains(roleName, keyword) {
+				options = append(options, discordgo.SelectMenuOption{
+					Label: roleName,
+					Value: roleID,
+				})
+				break
+			}
+		}
+	}
+
+	// Sort the options alphabetically
+	sort.Slice(options, func(i, j int) bool {
+		return options[i].Label < options[j].Label
+	})
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "Pronoun Selection",
+		Description: "Using a person’s chosen name and pronouns is essential to affirming their identity and showing basic respect. You can select your pronouns here.\n\n[Why is this important?](https://pronouns.org/what-and-why) .",
+		Color:       0xff69b4,
+	}
+
+	components := []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.SelectMenu{
+					CustomID:    "pronoun_select",
+					Placeholder: "Choose pronouns...",
+					Options:     options,
+					MinValues:   &[]int{0}[0],
+					MaxValues:   len(options),
+				},
+			},
+		},
+	}
+
+	_, err = s.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
+		Embeds:     []*discordgo.MessageEmbed{embed},
+		Components: components,
+	})
+
+	return err
+}
+
 // HandleRoleSelection handles the role selection interaction
 func HandleRoleSelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if i.Type != discordgo.InteractionMessageComponent {
@@ -810,6 +880,177 @@ func HandleValorSelection(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		}
 	} else {
 		responseText = "No role changes made."
+	}
+
+	// Send ephemeral follow-up message to the user
+	s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content: responseText,
+		Flags:   discordgo.MessageFlagsEphemeral,
+	})
+}
+
+// HandlePronounSelection handles the pronoun selection interaction
+func HandlePronounSelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if i.Type != discordgo.InteractionMessageComponent {
+		return
+	}
+
+	data := i.MessageComponentData()
+	if data.CustomID != "pronoun_select" {
+		return
+	}
+
+	userID := i.Member.User.ID
+	guildID := i.GuildID
+
+	// Helper function to get member with retry
+	getMemberWithRetry := func() (*discordgo.Member, error) {
+		for attempts := 0; attempts < 3; attempts++ {
+			if attempts > 0 {
+				time.Sleep(time.Millisecond * 200)
+			}
+			member, err := s.GuildMember(guildID, userID)
+			if err != nil {
+				return nil, err
+			}
+			return member, nil
+		}
+		return nil, fmt.Errorf("failed to get member after retries")
+	}
+
+	// Fetch current member data to get up-to-date roles
+	member, err := getMemberWithRetry()
+	if err != nil {
+		log.Printf("Error fetching member data for user %s: %v", userID, err)
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Failed to fetch your current roles.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	// Process multiple role selections
+	var addedRoles, removedRoles []string
+	selectedRoleIDs := data.Values
+
+	// Get all pronoun roles for comparison
+	openRoles := viper.GetStringMapString("openRoles")
+	pronounKeywords := []string{"They/Them", "She/Her", "He/Him", "Other/Ask Me", "Any"}
+	var allPronounRoles []string
+	for roleID, roleName := range openRoles {
+		for _, keyword := range pronounKeywords {
+			if strings.Contains(roleName, keyword) {
+				allPronounRoles = append(allPronounRoles, roleID)
+				break
+			}
+		}
+	}
+
+	// Check which roles user currently has
+	userRoles := make(map[string]bool)
+	for _, role := range member.Roles {
+		userRoles[role] = true
+	}
+
+	// Process each pronoun role
+	for _, roleID := range allPronounRoles {
+		hasRole := userRoles[roleID]
+		shouldHaveRole := false
+
+		// Check if this role is selected
+		for _, selectedRole := range selectedRoleIDs {
+			if selectedRole == roleID {
+				shouldHaveRole = true
+				break
+			}
+		}
+
+		if hasRole && !shouldHaveRole {
+			// Remove role
+			err = s.GuildMemberRoleRemove(guildID, userID, roleID)
+			if err != nil {
+				log.Printf("Failed to remove pronoun role %s from user %s: %v", roleID, userID, err)
+			} else {
+				removedRoles = append(removedRoles, openRoles[roleID])
+				log.Printf("Successfully removed pronoun role %s from user %s", roleID, userID)
+			}
+		} else if !hasRole && shouldHaveRole {
+			// Add role
+			err = s.GuildMemberRoleAdd(guildID, userID, roleID)
+			if err != nil {
+				log.Printf("Failed to add pronoun role %s to user %s: %v", roleID, userID, err)
+			} else {
+				addedRoles = append(addedRoles, openRoles[roleID])
+				log.Printf("Successfully added pronoun role %s to user %s", roleID, userID)
+			}
+		}
+	}
+
+	// Recreate the select menu components to keep it interactive
+	var options []discordgo.SelectMenuOption
+	for rID, roleName := range openRoles {
+		for _, keyword := range pronounKeywords {
+			if strings.Contains(roleName, keyword) {
+				options = append(options, discordgo.SelectMenuOption{
+					Label: roleName,
+					Value: rID,
+				})
+				break
+			}
+		}
+	}
+
+	// Sort the options alphabetically
+	sort.Slice(options, func(i, j int) bool {
+		return options[i].Label < options[j].Label
+	})
+
+	components := []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.SelectMenu{
+					CustomID:    "pronoun_select",
+					Placeholder: "Choose pronouns...",
+					Options:     options,
+					MinValues:   &[]int{0}[0],
+					MaxValues:   len(options),
+				},
+			},
+		},
+	}
+
+	// Update the original message to reset the select menu
+	embed := &discordgo.MessageEmbed{
+		Title:       "Pronoun Selection",
+		Description: "Select your pronouns to help others address you properly in the server.",
+		Color:       0xff69b4,
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseUpdateMessage,
+		Data: &discordgo.InteractionResponseData{
+			Embeds:     []*discordgo.MessageEmbed{embed},
+			Components: components,
+		},
+	})
+
+	// Create response message
+	var responseText string
+	if len(addedRoles) > 0 || len(removedRoles) > 0 {
+		if len(addedRoles) > 0 {
+			responseText += "Added: " + strings.Join(addedRoles, ", ")
+		}
+		if len(removedRoles) > 0 {
+			if responseText != "" {
+				responseText += "\n"
+			}
+			responseText += "Removed: " + strings.Join(removedRoles, ", ")
+		}
+	} else {
+		responseText = "No pronoun changes made."
 	}
 
 	// Send ephemeral follow-up message to the user
