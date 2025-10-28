@@ -91,6 +91,7 @@ func main() {
 	discord.AddHandler(posts.HandleRoleSelection)
 	discord.AddHandler(posts.HandleKeySelection)
 	discord.AddHandler(posts.HandleValorSelection)
+	discord.AddHandler(posts.HandlePronounSelection)
 
 	discord.Open()
 	defer discord.Close()

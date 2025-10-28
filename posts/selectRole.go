@@ -356,7 +356,7 @@ func PostPronounSelectionEmbed(s *discordgo.Session) error {
 
 	embed := &discordgo.MessageEmbed{
 		Title:       "Pronoun Selection",
-		Description: "Using a person’s chosen name and pronouns is essential to affirming their identity and showing basic respect. You can select your pronouns here.\n\n[Why is this important?](https://pronouns.org/what-and-why) .",
+		Description: "Using a person's chosen name and pronouns is essential to affirming their identity and showing basic respect. You can select your pronouns here.\n\n[Why is this important?](https://pronouns.org/what-and-why)",
 		Color:       0xff69b4,
 	}
 
@@ -368,7 +368,7 @@ func PostPronounSelectionEmbed(s *discordgo.Session) error {
 					Placeholder: "Choose pronouns...",
 					Options:     options,
 					MinValues:   &[]int{0}[0],
-					MaxValues:   len(options),
+					MaxValues:   1,
 				},
 			},
 		},
@@ -1087,51 +1087,49 @@ func HandlePronounSelection(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	}
 
-	// Check which roles user currently has
-	userRoles = make(map[string]bool)
-	for _, role := range member.Roles {
-		userRoles[role] = true
-	}
-
-	// Process each pronoun role
-	for _, roleID := range allPronounRoles {
-		hasRole := userRoles[roleID]
-		shouldHaveRole := false
-
-		// Check if this role is selected
-		if len(selectedRoleIDs) > 0 {
-			for _, selectedRole := range selectedRoleIDs {
-				if selectedRole == roleID {
-					shouldHaveRole = true
-					break
+	// For pronouns, we want mutual exclusivity - only one pronoun role at a time
+	if len(selectedRoleIDs) > 0 {
+		// If user selected a pronoun, remove ALL existing pronoun roles first
+		for _, roleID := range allPronounRoles {
+			if userRoles[roleID] {
+				log.Printf("Removing existing pronoun role %s from user %s for mutual exclusivity", roleID, userID)
+				err = s.GuildMemberRoleRemove(guildID, userID, roleID)
+				if err != nil {
+					log.Printf("Failed to remove existing pronoun role %s from user %s: %v", roleID, userID, err)
+				} else {
+					removedRoles = append(removedRoles, openRoles[roleID])
+					userRoles[roleID] = false // Update cached state
+					log.Printf("Successfully removed existing pronoun role %s from user %s", roleID, userID)
 				}
 			}
 		}
-		// If selectedRoleIDs is empty, shouldHaveRole remains false for all roles
 
-		log.Printf("Processing pronoun role %s (%s): hasRole=%v, shouldHaveRole=%v, selectedCount=%d", roleID, openRoles[roleID], hasRole, shouldHaveRole, len(selectedRoleIDs))
-
-		if hasRole && !shouldHaveRole {
-			// Remove role
-			log.Printf("Attempting to remove pronoun role %s from user %s", roleID, userID)
-			err = s.GuildMemberRoleRemove(guildID, userID, roleID)
+		// Now add the newly selected pronoun role
+		if len(selectedRoleIDs) == 1 {
+			selectedRoleID := selectedRoleIDs[0]
+			log.Printf("Adding new pronoun role %s to user %s", selectedRoleID, userID)
+			err = s.GuildMemberRoleAdd(guildID, userID, selectedRoleID)
 			if err != nil {
-				log.Printf("Failed to remove pronoun role %s from user %s: %v", roleID, userID, err)
+				log.Printf("Failed to add pronoun role %s to user %s: %v", selectedRoleID, userID, err)
 			} else {
-				removedRoles = append(removedRoles, openRoles[roleID])
-				userRoles[roleID] = false // Update cached state
-				log.Printf("Successfully removed pronoun role %s from user %s", roleID, userID)
+				addedRoles = append(addedRoles, openRoles[selectedRoleID])
+				userRoles[selectedRoleID] = true // Update cached state
+				log.Printf("Successfully added pronoun role %s to user %s", selectedRoleID, userID)
 			}
-		} else if !hasRole && shouldHaveRole {
-			// Add role
-			log.Printf("Attempting to add pronoun role %s to user %s", roleID, userID)
-			err = s.GuildMemberRoleAdd(guildID, userID, roleID)
-			if err != nil {
-				log.Printf("Failed to add pronoun role %s to user %s: %v", roleID, userID, err)
-			} else {
-				addedRoles = append(addedRoles, openRoles[roleID])
-				userRoles[roleID] = true // Update cached state
-				log.Printf("Successfully added pronoun role %s to user %s", roleID, userID)
+		}
+	} else {
+		// If no selection (empty), remove all pronoun roles
+		for _, roleID := range allPronounRoles {
+			if userRoles[roleID] {
+				log.Printf("Removing pronoun role %s from user %s (no selection)", roleID, userID)
+				err = s.GuildMemberRoleRemove(guildID, userID, roleID)
+				if err != nil {
+					log.Printf("Failed to remove pronoun role %s from user %s: %v", roleID, userID, err)
+				} else {
+					removedRoles = append(removedRoles, openRoles[roleID])
+					userRoles[roleID] = false // Update cached state
+					log.Printf("Successfully removed pronoun role %s from user %s", roleID, userID)
+				}
 			}
 		}
 	}
@@ -1163,26 +1161,40 @@ func HandlePronounSelection(s *discordgo.Session, i *discordgo.InteractionCreate
 					Placeholder: "Choose pronouns...",
 					Options:     options,
 					MinValues:   &[]int{0}[0],
-					MaxValues:   len(options),
+					MaxValues:   1,
 				},
 			},
 		},
 	}
 
-	// Update the original message to reset the select menu
+	// Update the original message to reset the select menu - use the EXACT same description as the original post
 	embed := &discordgo.MessageEmbed{
 		Title:       "Pronoun Selection",
-		Description: "Select your pronouns to help others address you properly in the server.",
+		Description: "Using a person's chosen name and pronouns is essential to affirming their identity and showing basic respect. You can select your pronouns here.\n\n[Why is this important?](https://pronouns.org/what-and-why)",
 		Color:       0xff69b4,
 	}
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	log.Printf("Attempting to respond to pronoun interaction for user %s", userID)
+	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseUpdateMessage,
 		Data: &discordgo.InteractionResponseData{
 			Embeds:     []*discordgo.MessageEmbed{embed},
 			Components: components,
 		},
 	})
+
+	if err != nil {
+		log.Printf("Failed to respond to pronoun interaction for user %s: %v", userID, err)
+		// Try to send an ephemeral response instead
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "There was an error processing your pronoun selection, but your roles may have been updated.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
 
 	// Create response message with more detailed feedback
 	var responseText string
@@ -1200,9 +1212,15 @@ func HandlePronounSelection(s *discordgo.Session, i *discordgo.InteractionCreate
 		responseText = "ℹ️ No pronoun changes made."
 	}
 
+	log.Printf("Sending follow-up message to user %s: %s", userID, responseText)
+
 	// Send ephemeral follow-up message to the user
-	s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+	_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Content: responseText,
 		Flags:   discordgo.MessageFlagsEphemeral,
 	})
+
+	if err != nil {
+		log.Printf("Failed to send follow-up message to user %s: %v", userID, err)
+	}
 }
