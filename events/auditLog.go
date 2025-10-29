@@ -2,6 +2,7 @@ package events
 
 import (
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,11 +35,42 @@ func OnMemberJoin(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	}
 }
 
+// Helper function to get the user who performed the role change
+func getResponsibleUser(s *discordgo.Session, guildID string, targetUserID string, actionType discordgo.AuditLogAction) string {
+	auditLogs, err := s.GuildAuditLog(guildID, "", "", int(actionType), 10)
+	if err != nil {
+		log.Printf("Error fetching audit log: %v", err)
+		return "Unknown"
+	}
+
+	// Look for the most recent audit log entry for this user
+	for _, entry := range auditLogs.AuditLogEntries {
+		if entry.TargetID == targetUserID {
+			// Convert string ID to int64
+			entryIDInt, err := strconv.ParseInt(entry.ID, 10, 64)
+			if err != nil {
+				log.Printf("Error parsing audit log entry ID: %v", err)
+				continue
+			}
+
+			// Check if this entry is recent (within last 30 seconds)
+			entryTime := time.Unix((entryIDInt>>22)/1000+1420070400, 0)
+			if time.Since(entryTime) < 30*time.Second {
+				return "<@" + entry.UserID + ">"
+			}
+			break
+		}
+	}
+	return "Unknown"
+}
+
 func OnMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 	log.Printf("OnMemberUpdate triggered for user: %s", m.User.ID)
 
 	// Check if roles have changed by comparing with cached member
 	rolesChanged := false
+	var addedRoles []string
+	var removedRoles []string
 	cachedMember, exists := memberCache.Get(m.User.ID)
 	if exists {
 		member, ok := cachedMember.(*discordgo.Member)
@@ -59,10 +91,136 @@ func OnMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 					}
 				}
 			}
+
+			// Find added roles
+			oldRoleMap := make(map[string]bool)
+			for _, role := range member.Roles {
+				oldRoleMap[role] = true
+			}
+			for _, role := range m.Roles {
+				if !oldRoleMap[role] {
+					addedRoles = append(addedRoles, role)
+				}
+			}
+
+			// Find removed roles
+			newRoleMap := make(map[string]bool)
+			for _, role := range m.Roles {
+				newRoleMap[role] = true
+			}
+			for _, role := range member.Roles {
+				if !newRoleMap[role] {
+					removedRoles = append(removedRoles, role)
+				}
+			}
 		}
 	} else {
 		// No cached member, assume roles changed
 		rolesChanged = true
+		// All current roles are considered "added"
+		addedRoles = m.Roles
+	}
+
+	// Log role additions to audit channel (excluding open roles)
+	if len(addedRoles) > 0 {
+		auditLogChannelId = viper.GetString("auditLogChannelId")
+		openRoles := viper.GetStringMapString("openRoles")
+
+		// Filter out open roles
+		restrictedAddedRoles := []string{}
+		for _, role := range addedRoles {
+			// Check if this role ID exists in the openRoles map
+			if _, isOpenRole := openRoles[role]; !isOpenRole {
+				restrictedAddedRoles = append(restrictedAddedRoles, role)
+			}
+		}
+
+		// Send audit log message if there are restricted role additions
+		if len(restrictedAddedRoles) > 0 {
+			rolesText := ""
+			for _, role := range restrictedAddedRoles {
+				rolesText += "<@&" + role + "> "
+			}
+
+			responsibleUser := getResponsibleUser(s, m.GuildID, m.User.ID, discordgo.AuditLogActionMemberRoleUpdate)
+
+			embed := &discordgo.MessageEmbed{
+				Title: "Role(s) Added",
+				Color: 0x00FF00, // Green color for role addition
+				Fields: []*discordgo.MessageEmbedField{
+					{
+						Name:  "User",
+						Value: "<@" + m.User.ID + ">",
+					},
+					{
+						Name:  "Roles Added",
+						Value: rolesText,
+					},
+					{
+						Name:  "Added By",
+						Value: responsibleUser,
+					},
+				},
+			}
+
+			_, err := s.ChannelMessageSendComplex(auditLogChannelId, &discordgo.MessageSend{
+				Embeds: []*discordgo.MessageEmbed{embed},
+			})
+			if err != nil {
+				log.Printf("Error sending role addition audit log: %v", err)
+			}
+		}
+	}
+
+	// Log role removals to audit channel (excluding open roles)
+	if len(removedRoles) > 0 {
+		auditLogChannelId = viper.GetString("auditLogChannelId")
+		openRoles := viper.GetStringMapString("openRoles")
+
+		// Filter out open roles
+		restrictedRemovedRoles := []string{}
+		for _, role := range removedRoles {
+			// Check if this role ID exists in the openRoles map
+			if _, isOpenRole := openRoles[role]; !isOpenRole {
+				restrictedRemovedRoles = append(restrictedRemovedRoles, role)
+			}
+		}
+
+		// Send audit log message if there are restricted role removals
+		if len(restrictedRemovedRoles) > 0 {
+			rolesText := ""
+			for _, role := range restrictedRemovedRoles {
+				rolesText += "<@&" + role + "> "
+			}
+
+			responsibleUser := getResponsibleUser(s, m.GuildID, m.User.ID, discordgo.AuditLogActionMemberRoleUpdate)
+
+			embed := &discordgo.MessageEmbed{
+				Title: "Role(s) Removed",
+				Color: 0xFF8C00, // Orange color for role removal
+				Fields: []*discordgo.MessageEmbedField{
+					{
+						Name:  "User",
+						Value: "<@" + m.User.ID + ">",
+					},
+					{
+						Name:  "Roles Removed",
+						Value: rolesText,
+					},
+					{
+						Name:  "Removed By",
+						Value: responsibleUser,
+					},
+				},
+			}
+
+			_, err := s.ChannelMessageSendComplex(auditLogChannelId, &discordgo.MessageSend{
+				Embeds: []*discordgo.MessageEmbed{embed},
+			})
+			if err != nil {
+				log.Printf("Error sending role removal audit log: %v", err)
+			}
+		}
 	}
 
 	// Only call WelcomeNewCommunityMember if roles changed
