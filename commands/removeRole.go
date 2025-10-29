@@ -3,6 +3,8 @@ package commands
 import (
 	"log"
 
+	"djs-zth-utilities/events"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/spf13/viper"
 )
@@ -103,6 +105,9 @@ func RemoveRole(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				}
 				return
 			}
+			// Track the role command invoker for audit logging BEFORE removing the role
+			events.TrackRoleCommand(targetUser.ID, user.ID, role.ID)
+
 			// Remove the role
 			err = s.GuildMemberRoleRemove(i.GuildID, targetUser.ID, role.ID)
 			if err != nil {

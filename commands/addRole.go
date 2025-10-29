@@ -3,6 +3,8 @@ package commands
 import (
 	"log"
 
+	"djs-zth-utilities/events"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/spf13/viper"
 )
@@ -106,6 +108,9 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 				}
 				return
 			}
+
+			// Track the role command invoker for audit logging BEFORE adding the role
+			events.TrackRoleCommand(targetUser.ID, user.ID, role.ID)
 
 			// Add the role to the user
 			err = s.GuildMemberRoleAdd(i.GuildID, targetUser.ID, role.ID)

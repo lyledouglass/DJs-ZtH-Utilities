@@ -15,9 +15,17 @@ var (
 	auditLogChannelId string
 	messageCache      *lru.Cache
 	memberCache       *lru.Cache
+	roleCommandCache  *lru.Cache
 	messageToLog      string
 	embed             *discordgo.MessageEmbed
 )
+
+// Initialize the role command cache if needed
+func init() {
+	if roleCommandCache == nil {
+		roleCommandCache, _ = lru.New(1000)
+	}
+}
 
 func OnMemberJoin(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	auditLogChannelId = viper.GetString("auditLogChannelId")
@@ -35,9 +43,45 @@ func OnMemberJoin(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	}
 }
 
+// TrackRoleCommand tracks who invoked a role command
+func TrackRoleCommand(targetUserID, invokerUserID, roleID string) {
+	if roleCommandCache == nil {
+		roleCommandCache, _ = lru.New(1000)
+	}
+	key := targetUserID + ":" + roleID
+	roleCommandCache.Add(key, invokerUserID)
+
+	log.Printf("TrackRoleCommand: Tracking key=%s, invoker=%s", key, invokerUserID)
+
+	// Remove the entry after 10 seconds to prevent stale data
+	go func() {
+		time.Sleep(10 * time.Second)
+		roleCommandCache.Remove(key)
+		log.Printf("TrackRoleCommand: Removed expired key=%s", key)
+	}()
+}
+
 // Helper function to get the user who performed the role change
 func getResponsibleUser(s *discordgo.Session, guildID string, targetUserID string, actionType discordgo.AuditLogAction) string {
-	auditLogs, err := s.GuildAuditLog(guildID, "", "", int(actionType), 10)
+	// First check if we have a tracked role command invoker
+	if roleCommandCache != nil {
+		log.Printf("getResponsibleUser: Checking cache for targetUserID=%s", targetUserID)
+		// Check for any role that might have been added/removed for this user
+		for _, key := range roleCommandCache.Keys() {
+			keyStr := key.(string)
+			log.Printf("getResponsibleUser: Checking cached key=%s", keyStr)
+			if strings.HasPrefix(keyStr, targetUserID+":") {
+				if invokerID, exists := roleCommandCache.Get(key); exists {
+					log.Printf("getResponsibleUser: Found cached invoker=%s for key=%s", invokerID.(string), keyStr)
+					return "<@" + invokerID.(string) + ">"
+				}
+			}
+		}
+		log.Printf("getResponsibleUser: No cached invoker found for targetUserID=%s", targetUserID)
+	}
+
+	// Fall back to audit log check
+	auditLogs, err := s.GuildAuditLog(guildID, "", "", int(actionType), 50)
 	if err != nil {
 		log.Printf("Error fetching audit log: %v", err)
 		return "Unknown"
@@ -56,7 +100,12 @@ func getResponsibleUser(s *discordgo.Session, guildID string, targetUserID strin
 			// Check if this entry is recent (within last 30 seconds)
 			entryTime := time.Unix((entryIDInt>>22)/1000+1420070400, 0)
 			if time.Since(entryTime) < 30*time.Second {
-				return "<@" + entry.UserID + ">"
+				userID := entry.UserID
+				user, err := s.User(userID)
+				if err == nil && user.Bot {
+					return "Bot (via slash command)"
+				}
+				return "<@" + userID + ">"
 			}
 			break
 		}
