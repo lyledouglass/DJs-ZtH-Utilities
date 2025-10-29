@@ -124,46 +124,63 @@ func OnZthTicketCreate(s *discordgo.Session, t *discordgo.ThreadCreate) {
 
 		log.Printf("Processing new thread %s in ticket channel", t.ID)
 
-		time.Sleep(2 * time.Second)
-		messages, err := s.ChannelMessages(t.ID, 100, "", "", "")
-		if err != nil {
-			log.Printf("Error fetching messages: %v", err)
-			return
-		}
-
-		log.Printf("Fetched %d messages from thread %s", len(messages), t.ID)
+		// Retry mechanism with increasing delays
+		maxRetries := 5
+		delays := []time.Duration{2 * time.Second, 3 * time.Second, 5 * time.Second, 8 * time.Second, 10 * time.Second}
 
 		var mentionUser *discordgo.User
+		var messageWithEmbeds *discordgo.Message
 
-		for _, msg := range messages {
-			if msg == nil || msg.Author == nil {
+		for attempt := 0; attempt < maxRetries; attempt++ {
+			time.Sleep(delays[attempt])
+
+			messages, err := s.ChannelMessages(t.ID, 100, "", "", "")
+			if err != nil {
+				log.Printf("Error fetching messages (attempt %d): %v", attempt+1, err)
 				continue
 			}
-			log.Printf("Message from %s has %d mentions and %d embeds", msg.Author.Username, len(msg.Mentions), len(msg.Embeds))
-			if len(msg.Mentions) > 0 && msg.Mentions[0] != nil {
-				mentionUser = msg.Mentions[0]
-				log.Printf("Mentioned user: %s", mentionUser.ID)
-				break
+
+			log.Printf("Attempt %d: Fetched %d messages from thread %s", attempt+1, len(messages), t.ID)
+
+			// Find mentioned user if we haven't already
+			if mentionUser == nil {
+				for _, msg := range messages {
+					if msg == nil || msg.Author == nil {
+						continue
+					}
+					if len(msg.Mentions) > 0 && msg.Mentions[0] != nil {
+						mentionUser = msg.Mentions[0]
+						log.Printf("Mentioned user: %s", mentionUser.ID)
+						break
+					}
+				}
 			}
-		}
 
-		if mentionUser == nil {
-			log.Println("No mentioned user found")
-			return
-		}
+			// Look for message with embeds
+			for _, msg := range messages {
+				if msg != nil && len(msg.Embeds) >= 2 {
+					messageWithEmbeds = msg
+					log.Printf("Found message with %d embeds on attempt %d", len(msg.Embeds), attempt+1)
+					break
+				}
+			}
 
-		// Look for message with embeds and create ticket embed
-		for _, msg := range messages {
-			if msg != nil && len(msg.Embeds) >= 2 {
+			// If we have both user and embeds, we can proceed
+			if mentionUser != nil && messageWithEmbeds != nil {
 				log.Println("Creating ticket embed")
-				createTicketEmbed(s, msg, t.ID, mentionUser.ID)
-				// Mark as processed only after successful creation
+				createTicketEmbed(s, messageWithEmbeds, t.ID, mentionUser.ID)
 				processedThreads[t.ID] = true
 				return
 			}
+
+			log.Printf("Attempt %d: mentionUser=%v, messageWithEmbeds=%v", attempt+1, mentionUser != nil, messageWithEmbeds != nil)
 		}
 
-		log.Println("No message with sufficient embeds found")
+		if mentionUser == nil {
+			log.Println("No mentioned user found after all retries")
+		} else if messageWithEmbeds == nil {
+			log.Println("No message with sufficient embeds found after all retries")
+		}
 	} else {
 		log.Printf("Thread created in different channel: %s (not %s)", t.ParentID, ticketChannelId)
 	}
