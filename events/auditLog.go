@@ -296,7 +296,11 @@ func OnMemberLeave(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 	accessControlChannelId := viper.GetString("accessControlChannelId")
 	// Send a message to the audit log channel
 	message := "User <@" + m.User.ID + "> has left the server"
-	restrictedRoles := viper.GetStringSlice("rolesRequiringApproval")
+
+	// Combine both role lists into restrictedRoles
+	rolesRequiringApproval := viper.GetStringSlice("rolesRequiringApproval")
+	approvedRoles := viper.GetStringSlice("approvedRoles")
+	restrictedRoles := append(rolesRequiringApproval, approvedRoles...)
 
 	// All members with restricted roles should have the Community Member
 	// role by default if someone hasn't done the process incorrectly, so
