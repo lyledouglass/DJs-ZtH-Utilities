@@ -32,7 +32,7 @@ func WelcomeNewCommunityMember(s *discordgo.Session, m *discordgo.GuildMemberUpd
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	greeting := memberGreetings[r.Intn(len(memberGreetings))]
 
-	auditLogs, err := s.GuildAuditLog(m.GuildID, "", "", int(discordgo.AuditLogActionMemberRoleUpdate), 1)
+	auditLogs, err := s.GuildAuditLog(m.GuildID, "", "", int(discordgo.AuditLogActionMemberRoleUpdate), 5)
 	if err != nil {
 		log.Println("Error fetching audit logs:", err)
 		return
@@ -47,8 +47,8 @@ func WelcomeNewCommunityMember(s *discordgo.Session, m *discordgo.GuildMemberUpd
 	}
 
 	if executorId == "" {
-		log.Println("Error finding executor ID")
-		return
+		log.Printf("No executor ID found for member %s, assuming self-performed action", m.User.ID)
+		executorId = m.User.ID
 	}
 
 	communityMemberRole := viper.GetString("communityMemberRole")
@@ -84,7 +84,12 @@ func WelcomeNewCommunityMember(s *discordgo.Session, m *discordgo.GuildMemberUpd
 
 	// If the role was newly added, send the welcome message
 	if roleAdded {
-		message := "<@" + executorId + "> has welcomed a new member!\nSay " + greeting + " to <@" + m.User.ID + ">!"
+		var message string
+		if executorId == m.User.ID {
+			message = "<@" + m.User.ID + "> has joined the community!\nSay " + greeting + " to them!"
+		} else {
+			message = "<@" + executorId + "> has welcomed a new member!\nSay " + greeting + " to <@" + m.User.ID + ">!"
+		}
 		_, err := s.ChannelMessageSend(viper.GetString("communityMemberGeneralChannelId"), message)
 		if err != nil {
 			log.Println("Error sending welcome message:", err)

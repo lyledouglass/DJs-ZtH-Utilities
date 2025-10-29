@@ -80,7 +80,6 @@ func main() {
 	discord.AddHandler(events.RoleButtonInteractionCreate)
 	discord.AddHandler(events.HandleReportMessageCommand)
 	discord.AddHandler(events.OnDJsThreadCreate)
-	discord.AddHandler(events.WelcomeNewCommunityMember)
 	discord.AddHandler(events.OnZthTicketCreate)
 	discord.AddHandler(events.OnMemberJoin)
 	discord.AddHandler(events.OnMemberLeave)
@@ -102,5 +101,4 @@ func main() {
 	signal.Notify(c, os.Interrupt)
 	<-c
 	fmt.Println("Shutting down bot...")
-
 }

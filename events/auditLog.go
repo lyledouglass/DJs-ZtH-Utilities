@@ -37,6 +37,39 @@ func OnMemberJoin(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 func OnMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 	log.Printf("OnMemberUpdate triggered for user: %s", m.User.ID)
 
+	// Check if roles have changed by comparing with cached member
+	rolesChanged := false
+	cachedMember, exists := memberCache.Get(m.User.ID)
+	if exists {
+		member, ok := cachedMember.(*discordgo.Member)
+		if ok {
+			// Compare role slices
+			if len(m.Roles) != len(member.Roles) {
+				rolesChanged = true
+			} else {
+				// Check if all roles match
+				roleMap := make(map[string]bool)
+				for _, role := range member.Roles {
+					roleMap[role] = true
+				}
+				for _, role := range m.Roles {
+					if !roleMap[role] {
+						rolesChanged = true
+						break
+					}
+				}
+			}
+		}
+	} else {
+		// No cached member, assume roles changed
+		rolesChanged = true
+	}
+
+	// Only call WelcomeNewCommunityMember if roles changed
+	if rolesChanged {
+		WelcomeNewCommunityMember(s, m)
+	}
+
 	// Delay the cache update to allow other handlers (e.g.
 	// WelcomeNewCommunityMember) to process first
 	delay := viper.GetInt("memberCacheUpdateDelay")
