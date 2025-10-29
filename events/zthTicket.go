@@ -21,7 +21,7 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 	}
 
 	log.Printf("Processing embed with %d fields", len(embedWithInfo.Fields))
-	var characterName, realm string
+	var characterName, realm, mainCharacter string
 
 	// Debug: print all fields
 	for i, field := range embedWithInfo.Fields {
@@ -36,6 +36,8 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 			characterName = field.Value
 		case "Realm or Server":
 			realm = field.Value
+		case "Main Character":
+			mainCharacter = field.Value
 		// Add alternative field names in case they're different
 		case "Character":
 			if characterName == "" {
@@ -48,7 +50,7 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 		}
 	}
 
-	log.Printf("Extracted: Character='%s', Realm='%s', UserID='%s'", characterName, realm, userId)
+	log.Printf("Extracted: Character='%s', Realm='%s', MainCharacter='%s', UserID='%s'", characterName, realm, mainCharacter, userId)
 
 	if characterName == "" || realm == "" || userId == "" {
 		log.Println("Missing character name, realm, or user ID")
@@ -61,12 +63,12 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 		Fields: []*discordgo.MessageEmbedField{
 			{
 				Name:   "Character",
-				Value:  characterName + " - " + realm,
+				Value:  characterName + "-" + realm,
 				Inline: false,
 			},
 			{
 				Name:   "Guild Note",
-				Value:  "[XFa:" + characterName + "]",
+				Value:  "[XFa:" + mainCharacter + "]",
 				Inline: false,
 			},
 			{
