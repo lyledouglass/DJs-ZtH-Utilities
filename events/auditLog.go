@@ -193,13 +193,19 @@ func OnMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 
 			responsibleUser := getResponsibleUser(s, m.GuildID, m.User.ID, discordgo.AuditLogActionMemberRoleUpdate)
 
+			targetUser := m.User
+			targetUsername := m.User.Username
+			if targetUser.GlobalName != "" {
+				targetUsername = targetUser.GlobalName
+			}
+
 			embed := &discordgo.MessageEmbed{
 				Title: "Role(s) Added",
 				Color: 0x00FF00, // Green color for role addition
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:  "User",
-						Value: "<@" + m.User.ID + ">",
+						Value: "<@" + m.User.ID + ">" + " (" + targetUsername + ")",
 					},
 					{
 						Name:  "Roles Added",
@@ -244,13 +250,19 @@ func OnMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 
 			responsibleUser := getResponsibleUser(s, m.GuildID, m.User.ID, discordgo.AuditLogActionMemberRoleUpdate)
 
+			targetUser := m.User
+			targetUsername := m.User.Username
+			if targetUser.GlobalName != "" {
+				targetUsername = targetUser.GlobalName
+			}
+
 			embed := &discordgo.MessageEmbed{
 				Title: "Role(s) Removed",
 				Color: 0xFF8C00, // Orange color for role removal
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:  "User",
-						Value: "<@" + m.User.ID + ">",
+						Value: "<@" + m.User.ID + ">" + " (" + targetUsername + ")",
 					},
 					{
 						Name:  "Roles Removed",
@@ -303,7 +315,7 @@ func OnMemberLeave(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 	}
 
 	// Send a message to the audit log channel
-	message := "User " + username + " (<@" + m.User.ID + ">) has left the server"
+	message := "User <@" + m.User.ID + "> (" + username + ") has left the server"
 
 	// Combine both role lists into restrictedRoles
 	rolesRequiringApproval := viper.GetStringSlice("rolesRequiringApproval")

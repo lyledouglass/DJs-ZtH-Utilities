@@ -71,8 +71,9 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 
 				embed := &discordgo.MessageEmbed{
 					Title:       "Role Request",
-					Description: "<@" + user.ID + "> has requested to add the <@&" + role.ID + "> role to " + targetUsername + " (" + targetMember.User.ID + ")",
-					Color:       0x00ff00,
+					Description: "<@" + user.ID + "> has requested to add the <@&" + role.ID + "> role to " + "<@" + targetMember.User.ID + ">" + " (" + targetUsername + ")",
+
+					Color: 0x00ff00,
 					Fields: []*discordgo.MessageEmbedField{
 						{
 							Name:   "Approval Role",
@@ -150,7 +151,7 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 					},
 					{
 						Name:   "Target User",
-						Value:  targetUsername + " (<@" + targetUser.ID + ">)",
+						Value:  "<@" + targetUser.ID + "> " + "(" + targetUsername + ")",
 						Inline: false,
 					},
 					{

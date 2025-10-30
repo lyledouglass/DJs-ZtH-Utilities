@@ -142,7 +142,7 @@ func RemoveRole(s *discordgo.Session, i *discordgo.InteractionCreate) {
 					},
 					{
 						Name:   "Target User",
-						Value:  targetUsername + " (<@" + targetUser.ID + ">)",
+						Value:  "<@" + targetUser.ID + ">" + " (" + targetUsername + ")",
 						Inline: false,
 					},
 					{
