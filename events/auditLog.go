@@ -424,6 +424,12 @@ func OnMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
 			},
 		}
 	} else {
+
+		targetUser := m.Author
+		targetUsername := m.Author.Username
+		if targetUser.GlobalName != "" {
+			targetUsername = targetUser.GlobalName
+		}
 		messageToLog = deletedMessage.(*discordgo.Message).Content
 		embed = &discordgo.MessageEmbed{
 			Title: "Message Deleted",
@@ -434,7 +440,7 @@ func OnMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
 				},
 				{
 					Name:  "Author",
-					Value: "<@" + deletedMessage.(*discordgo.Message).Author.ID + ">",
+					Value: "<@" + deletedMessage.(*discordgo.Message).Author.ID + ">" + " (" + targetUsername + ")",
 				},
 				{
 					Name:  "Message",
@@ -451,14 +457,4 @@ func OnMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
 	if err != nil {
 		s.ChannelMessageSend(m.GuildID, "Error sending message to audit log channel")
 	}
-}
-
-// Utility function to check if a user has a specific role
-func hasRole(userRoles []string, roleID string) bool {
-	for _, role := range userRoles {
-		if role == roleID {
-			return true
-		}
-	}
-	return false
 }
