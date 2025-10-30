@@ -124,6 +124,13 @@ func RemoveRole(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 			executorReturnMessage := "The role `@" + role.Name + "` has been removed from " + "<@" + targetMember.User.ID + ">"
 
+			// Format the message
+			targetUser = targetMember.User
+			targetUsername := targetMember.User.Username
+			if targetUser.GlobalName != "" {
+				targetUsername = targetUser.GlobalName
+			}
+
 			successEmbed := &discordgo.MessageEmbed{
 				Title: "Role Removed",
 				Color: 0xff0000,
@@ -135,7 +142,7 @@ func RemoveRole(s *discordgo.Session, i *discordgo.InteractionCreate) {
 					},
 					{
 						Name:   "Target User",
-						Value:  "<@" + targetUser.ID + ">",
+						Value:  targetUsername + " (<@" + targetUser.ID + ">)",
 						Inline: false,
 					},
 					{

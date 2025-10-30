@@ -63,9 +63,15 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 			rolesRequiringApproval := viper.GetStringSlice("rolesRequiringApproval")
 			approvalRole := viper.GetString("roleApproverId")
 			if contains(rolesRequiringApproval, role.ID) {
+				targetUser = targetMember.User
+				targetUsername := targetMember.User.Username
+				if targetUser.GlobalName != "" {
+					targetUsername = targetUser.GlobalName
+				}
+
 				embed := &discordgo.MessageEmbed{
 					Title:       "Role Request",
-					Description: "<@" + user.ID + "> has requested to add the <@&" + role.ID + "> role to " + "<@" + targetMember.User.ID + ">",
+					Description: "<@" + user.ID + "> has requested to add the <@&" + role.ID + "> role to " + targetUsername + " (" + targetMember.User.ID + ")",
 					Color:       0x00ff00,
 					Fields: []*discordgo.MessageEmbedField{
 						{
@@ -127,6 +133,12 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 			}
 
 			// Format the message
+			targetUser = targetMember.User
+			targetUsername := targetMember.User.Username
+			if targetUser.GlobalName != "" {
+				targetUsername = targetUser.GlobalName
+			}
+
 			successEmbed := &discordgo.MessageEmbed{
 				Title: "Role Added",
 				Color: 0x00ff00,
@@ -138,7 +150,7 @@ func AddRoleInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCrea
 					},
 					{
 						Name:   "Target User",
-						Value:  "<@" + targetUser.ID + ">",
+						Value:  targetUsername + " (<@" + targetUser.ID + ">)",
 						Inline: false,
 					},
 					{

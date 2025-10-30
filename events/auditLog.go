@@ -294,8 +294,16 @@ func OnMemberLeave(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 	rolesToPing := []string{}
 	auditLogChannelId = viper.GetString("auditLogChannelId")
 	accessControlChannelId := viper.GetString("accessControlChannelId")
+
+	// Get username for display
+	user := m.User
+	username := m.User.Username
+	if user.GlobalName != "" {
+		username = user.GlobalName
+	}
+
 	// Send a message to the audit log channel
-	message := "User <@" + m.User.ID + "> has left the server"
+	message := "User " + username + " (<@" + m.User.ID + ">) has left the server"
 
 	// Combine both role lists into restrictedRoles
 	rolesRequiringApproval := viper.GetStringSlice("rolesRequiringApproval")
@@ -332,7 +340,7 @@ func OnMemberLeave(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 		Fields: []*discordgo.MessageEmbedField{
 			{
 				Name:  "User",
-				Value: "<@" + m.User.ID + ">",
+				Value: username + " (<@" + m.User.ID + ">)",
 			},
 			{
 				Name: "Roles",
