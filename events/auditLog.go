@@ -425,11 +425,6 @@ func OnMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
 		}
 	} else {
 
-		targetUser := m.Author
-		targetUsername := m.Author.Username
-		if targetUser.GlobalName != "" {
-			targetUsername = targetUser.GlobalName
-		}
 		messageToLog = deletedMessage.(*discordgo.Message).Content
 		embed = &discordgo.MessageEmbed{
 			Title: "Message Deleted",
@@ -440,7 +435,7 @@ func OnMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
 				},
 				{
 					Name:  "Author",
-					Value: "<@" + deletedMessage.(*discordgo.Message).Author.ID + ">" + " (" + targetUsername + ")",
+					Value: "<@" + deletedMessage.(*discordgo.Message).Author.ID + ">" + " (" + deletedMessage.(*discordgo.Message).Author.Username + ")",
 				},
 				{
 					Name:  "Message",
