@@ -49,3 +49,14 @@ jobs:
           gh release create ${{ env.VERSION }}
           --title ${{ env.VERSION }}
           --generate-notes --notes-start-tag ${{ env.PREVIOUS_TAG }}
+
+      - name: Create Discord Post
+        shell: bash
+        run: |
+          # Replace version placeholders in discord.json
+          sed "s/\${version}/${{ env.VERSION }}/g" .build/discord.json > discord_payload.json
+
+          # Post to Discord webhook
+          curl -H "Content-Type: application/json" \
+               -d @discord_payload.json \
+               "${{ secrets.DISCORD_WEBHOOK }}"
