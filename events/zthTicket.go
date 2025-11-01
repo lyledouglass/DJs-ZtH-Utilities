@@ -2,6 +2,7 @@ package events
 
 import (
 	"log"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -50,7 +51,150 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 		}
 	}
 
-	log.Printf("Extracted: Character='%s', Realm='%s', MainCharacter='%s', UserID='%s'", characterName, realm, mainCharacter, userId)
+	// Extract Discord nickname from thread messages
+	var discordNickname string
+	var guildID string
+
+	// Get guild ID from the thread channel itself
+	if channel, err := s.Channel(threadId); err == nil && channel.GuildID != "" {
+		guildID = channel.GuildID
+		log.Printf("Found guild ID from thread channel: %s", guildID)
+	} else {
+		log.Printf("Error getting thread channel or no guild ID: %v", err)
+	}
+
+	messages, err := s.ChannelMessages(threadId, 50, "", "", "")
+	if err == nil {
+		// If we still don't have guild ID, try to find it from messages as backup
+		if guildID == "" {
+			for _, msg := range messages {
+				if msg != nil && msg.GuildID != "" {
+					guildID = msg.GuildID
+					log.Printf("Found guild ID from message: %s", guildID)
+					break
+				}
+			}
+		}
+
+		for _, msg := range messages {
+			if msg == nil || msg.Author == nil {
+				continue
+			}
+
+			// Look for "Tickets v2 added" system message with more flexible parsing
+			if msg.Author.Bot && strings.Contains(msg.Content, "Tickets v2 added") && strings.Contains(msg.Content, "to the thread") {
+				// Parse various patterns: "Tickets v2 added <name> to the thread." or similar
+				content := msg.Content
+				if startIdx := strings.Index(content, "Tickets v2 added "); startIdx != -1 {
+					start := startIdx + len("Tickets v2 added ")
+					if endIdx := strings.Index(content[start:], " to the thread"); endIdx != -1 {
+						discordNickname = strings.TrimSpace(content[start : start+endIdx])
+						log.Printf("Extracted Discord nickname from system message: '%s'", discordNickname)
+						break
+					}
+				}
+			}
+
+			// Fallback: look for any message from the user to get their display name
+			if discordNickname == "" && msg.Author.ID == userId {
+				// Try to get nickname from guild member first
+				if guildID != "" {
+					if member, err := s.GuildMember(guildID, userId); err == nil {
+						log.Printf("Guild member lookup from user message - Nick: '%s', Username: '%s', GlobalName: '%s'",
+							member.Nick, member.User.Username, member.User.GlobalName)
+
+						if member.Nick != "" && strings.TrimSpace(member.Nick) != "" {
+							discordNickname = strings.TrimSpace(member.Nick)
+							log.Printf("Extracted Discord nickname from guild member: '%s'", discordNickname)
+							break
+						} else if member.User.GlobalName != "" && strings.TrimSpace(member.User.GlobalName) != "" {
+							discordNickname = strings.TrimSpace(member.User.GlobalName)
+							log.Printf("Using Discord global display name from member: '%s'", discordNickname)
+							break
+						} else {
+							discordNickname = member.User.Username
+							log.Printf("Using Discord username from member: '%s'", discordNickname)
+							break
+						}
+					} else {
+						log.Printf("Error getting guild member from user message: %v", err)
+					}
+				}
+			}
+
+			// Another fallback: look for mentions in embed messages
+			if discordNickname == "" && len(msg.Mentions) > 0 {
+				for _, mention := range msg.Mentions {
+					if mention.ID == userId {
+						// Try guild member lookup with the guild ID we found
+						if guildID != "" {
+							if member, err := s.GuildMember(guildID, userId); err == nil {
+								log.Printf("Guild member lookup from mention - Nick: '%s', Username: '%s', GlobalName: '%s'",
+									member.Nick, member.User.Username, member.User.GlobalName)
+
+								if member.Nick != "" && strings.TrimSpace(member.Nick) != "" {
+									discordNickname = strings.TrimSpace(member.Nick)
+									log.Printf("Extracted Discord nickname from mentioned user: '%s'", discordNickname)
+								} else if member.User.GlobalName != "" && strings.TrimSpace(member.User.GlobalName) != "" {
+									discordNickname = strings.TrimSpace(member.User.GlobalName)
+									log.Printf("Using Discord global display name from mention: '%s'", discordNickname)
+								} else {
+									discordNickname = member.User.Username
+									log.Printf("Using Discord username from mention: '%s'", discordNickname)
+								}
+							} else {
+								log.Printf("Error getting guild member from mention: %v", err)
+								discordNickname = mention.Username
+								log.Printf("Using Discord username from mention (fallback): '%s'", discordNickname)
+							}
+						} else {
+							discordNickname = mention.Username
+							log.Printf("Using Discord username from mention (no guild): '%s'", discordNickname)
+						}
+						break
+					}
+				}
+				if discordNickname != "" {
+					break
+				}
+			}
+		}
+	} else {
+		log.Printf("Error fetching messages for nickname extraction: %v", err)
+	}
+
+	// Final fallback: try direct guild member lookup if we still don't have a nickname
+	if discordNickname == "" && guildID != "" {
+		if member, err := s.GuildMember(guildID, userId); err == nil {
+			log.Printf("Guild member lookup successful (final fallback) - Nick: '%s', Username: '%s', GlobalName: '%s'",
+				member.Nick, member.User.Username, member.User.GlobalName)
+
+			// Check for nickname first (server-level nickname)
+			if member.Nick != "" && strings.TrimSpace(member.Nick) != "" {
+				discordNickname = strings.TrimSpace(member.Nick)
+				log.Printf("Extracted Discord nickname from direct guild lookup: '%s'", discordNickname)
+			} else if member.User.GlobalName != "" && strings.TrimSpace(member.User.GlobalName) != "" {
+				// Try global display name (newer Discord feature)
+				discordNickname = strings.TrimSpace(member.User.GlobalName)
+				log.Printf("Using Discord global display name from direct guild lookup: '%s'", discordNickname)
+			} else {
+				discordNickname = member.User.Username
+				log.Printf("Using Discord username from direct guild lookup: '%s'", discordNickname)
+			}
+		} else {
+			log.Printf("Failed to get guild member for nickname: %v", err)
+		}
+	}
+
+	// Use main character as fallback if no Discord nickname found
+	guildNoteValue := "[XFa:" + mainCharacter + "]"
+	if discordNickname != "" {
+		guildNoteValue = "[XFa:" + discordNickname + "]"
+	} else {
+		log.Println("Warning: No Discord nickname found, using main character in guild note")
+	}
+
+	log.Printf("Extracted: Character='%s', Realm='%s', MainCharacter='%s', DiscordNickname='%s', UserID='%s'", characterName, realm, mainCharacter, discordNickname, userId)
 
 	if characterName == "" || realm == "" || userId == "" {
 		log.Println("Missing character name, realm, or user ID")
@@ -68,7 +212,7 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 			},
 			{
 				Name:   "Guild Note",
-				Value:  "[XFa:" + mainCharacter + "]",
+				Value:  guildNoteValue,
 				Inline: false,
 			},
 			{
@@ -79,7 +223,7 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 		},
 	}
 
-	_, err := s.ChannelMessageSendComplex(threadId, &discordgo.MessageSend{
+	_, err = s.ChannelMessageSendComplex(threadId, &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{ticketEmbed},
 		Components: []discordgo.MessageComponent{
 			discordgo.ActionsRow{
