@@ -186,12 +186,43 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 		}
 	}
 
+	// Check if user has a server nickname specifically
+	var hasServerNickname bool
+	if guildID != "" {
+		if member, err := s.GuildMember(guildID, userId); err == nil {
+			hasServerNickname = member.Nick != "" && strings.TrimSpace(member.Nick) != ""
+		}
+	}
+
 	// Use main character as fallback if no Discord nickname found
 	guildNoteValue := "[XFa:" + mainCharacter + "]"
 	if discordNickname != "" {
 		guildNoteValue = "[XFa:" + discordNickname + "]"
-	} else {
-		log.Println("Warning: No Discord nickname found, using main character in guild note")
+	}
+
+	// Send warning embed if user doesn't have a server nickname
+	if !hasServerNickname {
+		log.Println("Warning: User does not have a server nickname set")
+
+		roleApproverId := viper.GetString("roleApproverId")
+		if roleApproverId != "" {
+			warningEmbed := &discordgo.MessageEmbed{
+				Title:       "⚠️ Missing Server Nickname",
+				Description: "User does not have a server nickname set",
+				Color:       0xFFA500, // Orange color for warning
+				Timestamp:   time.Now().Format(time.RFC3339),
+			}
+
+			_, err := s.ChannelMessageSendComplex(threadId, &discordgo.MessageSend{
+				Content: "||<@&" + roleApproverId + ">||",
+				Embeds:  []*discordgo.MessageEmbed{warningEmbed},
+			})
+			if err != nil {
+				log.Printf("Error sending nickname warning embed: %v", err)
+			} else {
+				log.Println("Successfully sent server nickname warning embed")
+			}
+		}
 	}
 
 	log.Printf("Extracted: Character='%s', Realm='%s', MainCharacter='%s', DiscordNickname='%s', UserID='%s'", characterName, realm, mainCharacter, discordNickname, userId)
