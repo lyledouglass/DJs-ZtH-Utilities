@@ -64,39 +64,44 @@ go run main.go
 
 ### Via Docker
 
-1. Pull your image onto your host you will be running the bot on. If you built the image locally, you can skip this step. If you are pulling from a registry, use the following command:
+1. Pull your image onto your host you will be running the bot on. If you built the image locally, you can skip this step. If you are pulling from a registry, use the following command, replacing latest with the version tag (v.1.1.1 as an example) as necessary:
 
    ```bash
-   docker pull ghcr.io/lyledouglass/djzth-utilities-bot:v1.0.1
+   docker pull ghcr.io/lyledouglass/djzth-utilities-bot:latest
    ```
 
-2. Ensure you have a configured `config.json` file in your current directory with the correct configuration for your bot
+2. Ensure you have a configured `config.yaml` file in your current directory with the correct configuration for your bot
 3. Run the bot in a Docker container using the following command:
 
    ```bash
-   docker run -d --restart-always --name djzth-utilities-bot -v $(pwd)/config.json:/config.json djzth-utilities-bot
+   docker run -d --restart-always --name djzth-utilities-bot -v $(pwd)/config.yaml:/config.yaml djzth-utilities-bot
    ```
 
-   This command mounts the `config.json` file from your current directory to the `/config.json` path inside the container, allowing the bot to access its configuration.
+   This command mounts the `config.yaml` file from your current directory to the `/config.yaml` path inside the container, allowing the bot to access its configuration.
 
 ## Hosting
 
-For hosting the bot, you can use any Linux-based server or cloud service that supports Docker. In production, this bot is currently hosted on an OVH-Cloud Virtual Private Server (VPS) with the following specifications:
+For hosting the bot, you can use any Linux-based server or cloud service that supports Docker. In production, this bot is currently hosted on a local VM with the following specifications:
 
 * **CPU**: 4 vCores
-* **RAM**: 4 GB
-* **Storage**: 80 GB SSD
+* **RAM**: 8 GB
+* **Storage**: 100 GB SSD
 * **Operating System**: Ubuntu 24.04 LTS
-* **Network**: 500 Mbps
+* **Network**: 1 Gbps connection
+
+The server is also running other services outside of the scope of this bot.
+
+TLDR: Any Linux based system with Docker installed should be sufficient to host this bot for most use cases.
 
 ## Usage Documentation
+
+This section provides an overview of the bot's features and how to use them. It is not a comprehensive list of all features, but it covers the main functionalities of the bot.
 
 ### Slash Commands
 
 * /addrole `<user>` `<role>`: Adds a specified role to a user. This command is only usable by users with roles under the `rolesRequiringApproval` in the config file. If the role to add is part of the `rolesRequiringApproval`, the command will send a request to the specified channel in the config file for approval before adding the role to the user. This is to ensure that only authorized users can assign certain roles.
 * /removerole `<user>` `<role>`: Removes a specified role from a user. This command is also only usable by users with roles under the `rolesRequiringApproval` in the config file. If the role to remove is part of the `rolesRequiringApproval`, the command will send a request to the specified channel in the config file for approval before removing the role from the user. This ensures that only authorized users can remove certain roles.
 * /listroles `<user>`: Lists all roles assigned to a specified user. This command is also only usable by users with roles under the `rolesRequiringApproval` in the config file
-* /suggestion `<suggestion>` `<team>`: Submits a suggestion to the specified team. The suggestion will be sent to the appropriate channel based on the team specified, using the `leadershipChannelIds` list in the config. This command is available to all users in the server
 
 ### Menu commands
 
@@ -117,6 +122,7 @@ The bot will update a specific channel for audit logging purposes whenever:
 
 * When a member is giving the the `communityMembeRole`, the bot will welcome them in the `communityMemberGeneralChannelId`.
 * When a guild invite ticket is opened, the bot will post a summary for inviters to easily copy/paste info into WoW
+  * Also notifies approvers if the user does not have a server nickname set
 * When a new Death Jesters application is submitted, the bot will pin the embed, ping the `djsMemberRoleId`, and set a `djsAppLabel` tag on the forum post in `djsAppForumChannelId`
 * When a user start streaming to Twitch, they are given the `Streaming Now` role and special section on the member list
 * Removes embeds from specific channels under the `removeEmbedsFromChannels` list in the config file
@@ -131,3 +137,7 @@ The bot will cache the most recent 1000 messages from the server. This is used b
 #### Member Caching
 
 The bot will cache up to 3000 members in the server when it starts up. This is used to quickly access member information for commands and events. The cache will be cleared when the bot restarts
+
+##### Notes on caching
+
+Caching only occurs for the bot. If a user has not interacted with a user before via the client, the bot posts in channels that mention users will show up as the their UID. To mitigate this, the bot also sends the users global name as a string next to the UID
