@@ -23,6 +23,11 @@ jobs:
         run: |
           echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
+      - name: Get previous tag
+        id: get_previous_tag
+        run: |
+          echo "PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^)" >> $GITHUB_ENV
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -35,3 +40,12 @@ jobs:
           docker build -t ghcr.io/lyledouglass/djzth-utilities-bot:${{ env.VERSION }} -t ghcr.io/lyledouglass/djzth-utilities-bot:latest .
           docker push ghcr.io/lyledouglass/djzth-utilities-bot:${{ env.VERSION }}
           docker push ghcr.io/lyledouglass/djzth-utilities-bot:latest
+
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          gh release create ${{ env.VERSION }}
+          --title ${{ env.VERSION }}
+          --generate-notes --notes-start-tag ${{ env.PREVIOUS_TAG }}
