@@ -3,11 +3,13 @@
   "embeds": [
     {
       "title": "New DJs & ZtH Utils: ${version}",
-      "description": "**${version}** of *DJs & ZtH Utils* has been released. Review the release notes by clicking the link above!",
+      "description": "**${version}** of *DJs & ZtH Utils* has been released\nReview the release notes by clicking the link above!",
       "url": "https://github.com/lyledouglass/DJs-ZtH-Utilities/releases/tag/${version}",
       "color": 5814783,
-      "image": {
-        "url": "https://i.imgur.com/G721Ijo.png"
+      "author": {
+        "name": "lyledouglass",
+        "url": "https://github.com/lyledouglass/",
+        "icon_url": "https://i.imgur.com/G721Ijo.png"
       }
     }
   ],
