@@ -3,7 +3,7 @@
   "embeds": [
     {
       "title": "New DJs & ZtH Utils: ${version}",
-      "description": "**v1.0.0** of *DJs & ZtH Util*s has been released. Review the release notes by clicking the link above!",
+      "description": "**${version}** of *DJs & ZtH Utils* has been released. Review the release notes by clicking the link above!",
       "url": "https://github.com/lyledouglass/DJs-ZtH-Utilities/releases/tag/${version}",
       "color": 5814783,
       "image": {
