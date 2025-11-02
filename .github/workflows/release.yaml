@@ -26,7 +26,17 @@ jobs:
       - name: Get previous tag
         id: get_previous_tag
         run: |
-          echo "PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^)" >> $GITHUB_ENV
+          # Get the previous tag more reliably
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "^${GITHUB_REF#refs/tags/}$" | head -n 1)
+          echo "PREVIOUS_TAG=$PREVIOUS_TAG" >> $GITHUB_ENV
+          echo "Previous tag: $PREVIOUS_TAG"
+          echo "Current tag: ${GITHUB_REF#refs/tags/}"
+
+          # Debug: Show commits between tags
+          if [ ! -z "$PREVIOUS_TAG" ]; then
+            echo "Commits between $PREVIOUS_TAG and ${GITHUB_REF#refs/tags/}:"
+            git log --oneline "$PREVIOUS_TAG..${GITHUB_REF#refs/tags/}"
+          fi
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -45,10 +55,18 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          gh release create ${{ env.VERSION }}
-          --title ${{ env.VERSION }}
-          --generate-notes --notes-start-tag ${{ env.PREVIOUS_TAG }}
+        run: |
+          if [ ! -z "${{ env.PREVIOUS_TAG }}" ]; then
+            gh release create ${{ env.VERSION }} \
+              --title ${{ env.VERSION }} \
+              --generate-notes \
+              --notes-start-tag ${{ env.PREVIOUS_TAG }}
+          else
+            echo "No previous tag found, creating release without notes-start-tag"
+            gh release create ${{ env.VERSION }} \
+              --title ${{ env.VERSION }} \
+              --generate-notes
+          fi
 
       - name: Create Discord Post
         shell: bash
