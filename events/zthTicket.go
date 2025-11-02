@@ -10,6 +10,20 @@ import (
 )
 
 func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId string, userId string) {
+	// Check if thread name starts with "zth-"
+	channel, err := s.Channel(threadId)
+	if err != nil {
+		log.Printf("Error getting channel info: %v", err)
+		return
+	}
+
+	if !strings.HasPrefix(strings.ToLower(channel.Name), "zth-") {
+		log.Printf("Thread name '%s' does not start with 'zth-', skipping embed creation", channel.Name)
+		return
+	}
+
+	log.Printf("Processing zth ticket: %s", channel.Name)
+
 	if m == nil || len(m.Embeds) < 2 {
 		log.Printf("Message has %d embeds, need at least 2", len(m.Embeds))
 		return
