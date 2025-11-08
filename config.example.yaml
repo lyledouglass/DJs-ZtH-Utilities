@@ -76,3 +76,8 @@ gameRoles:
 
 embedRemoveChannels:
   - ""
+
+welcomeChannelId: ""
+welcomeWagonRoleId: ""
+
+raidTeamsChannelId: ""
