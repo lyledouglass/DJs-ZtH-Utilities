@@ -268,6 +268,9 @@ func RoleButtonInteractionCreate(s *discordgo.Session, i *discordgo.InteractionC
 
 			s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 				Content: "<@&" + viper.GetString("championRoleId") + ">, our friend " + "<@" + userID + "> is currently awaiting a guild invite!",
+				AllowedMentions: &discordgo.MessageAllowedMentions{
+					Roles: []string{viper.GetString("championRoleId")},
+				},
 			})
 		} else if strings.HasPrefix(data.CustomID, "sorry_missed_you_") {
 			parts := strings.Split(data.CustomID, "_")
