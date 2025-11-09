@@ -97,7 +97,7 @@ func WelcomeNewCommunityMember(s *discordgo.Session, m *discordgo.GuildMemberUpd
 		}
 
 		// Create private welcome thread
-		createWelcomeThread(s, m.User, m.GuildID)
+		// createWelcomeThread(s, m.User, m.GuildID)
 	}
 }
 
@@ -118,50 +118,8 @@ func createWelcomeThread(s *discordgo.Session, user *discordgo.User, guildID str
 		log.Printf("Error adding member %s to welcome thread: %v", user.ID, err)
 	}
 
-	// Add role approvers to the thread
-	roleApproverId := viper.GetString("roleApproverId")
-	if roleApproverId != "" {
-		guild, err := s.Guild(guildID)
-		if err != nil {
-			log.Printf("Error fetching guild for role approvers: %v", err)
-		} else {
-			for _, member := range guild.Members {
-				for _, roleID := range member.Roles {
-					if roleID == roleApproverId {
-						err = s.ThreadMemberAdd(thread.ID, member.User.ID)
-						if err != nil {
-							log.Printf("Error adding role approver %s to thread: %v", member.User.ID, err)
-						}
-						break
-					}
-				}
-			}
-		}
-	}
-
-	// Add Welcome Wagon role members to the thread
-	welcomeWagonRoleId := viper.GetString("welcomeWagonRoleId")
-	if welcomeWagonRoleId != "" {
-		guild, err := s.Guild(guildID)
-		if err != nil {
-			log.Printf("Error fetching guild for Welcome Wagon members: %v", err)
-		} else {
-			for _, member := range guild.Members {
-				for _, roleID := range member.Roles {
-					if roleID == welcomeWagonRoleId {
-						err = s.ThreadMemberAdd(thread.ID, member.User.ID)
-						if err != nil {
-							log.Printf("Error adding Welcome Wagon member %s to thread: %v", member.User.ID, err)
-						}
-						break
-					}
-				}
-			}
-		}
-	}
-
 	// Send welcome embeds
-	sendWelcomeEmbeds(s, thread.ID, user, guildID)
+	// sendWelcomeEmbeds(s, thread.ID, user, guildID)
 }
 
 func sendWelcomeEmbeds(s *discordgo.Session, threadID string, user *discordgo.User, guildID string) {
@@ -227,6 +185,8 @@ func sendWelcomeEmbeds(s *discordgo.Session, threadID string, user *discordgo.Us
 			},
 		},
 	}
+
+	_, err = s.ChannelMessageSend(threadID, fmt.Sprint("<@&"+viper.GetString("roleApproverId")+">"))
 
 	// Send embeds
 	_, err = s.ChannelMessageSendEmbed(threadID, welcomeEmbed)
