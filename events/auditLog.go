@@ -405,6 +405,7 @@ func OnMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
 	auditLogChannelId = viper.GetString("auditLogChannelId")
 	deletedMessage, exists := messageCache.Get(m.ID)
 	if !exists {
+		// If message not cached, we can't check the author, so proceed normally
 		messageToLog = "Message was not cached, unable to retrieve message content"
 		embed = &discordgo.MessageEmbed{
 			Title: "Message Deleted",
@@ -424,6 +425,10 @@ func OnMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
 			},
 		}
 	} else {
+		// Check if the author is the ticket bot and skip if so
+		if deletedMessage.(*discordgo.Message).Author.ID == viper.GetString("ticketBotUserId") {
+			return
+		}
 
 		messageToLog = deletedMessage.(*discordgo.Message).Content
 		embed = &discordgo.MessageEmbed{
