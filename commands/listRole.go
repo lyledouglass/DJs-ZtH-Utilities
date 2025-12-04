@@ -58,11 +58,6 @@ func ListRole(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				}
 
 				allMembers = append(allMembers, members...)
-
-				if len(members) < 1000 {
-					break
-				}
-
 				lastUserID = members[len(members)-1].User.ID
 			}
 
