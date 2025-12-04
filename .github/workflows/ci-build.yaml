@@ -21,3 +21,15 @@ jobs:
       - name: Build
         run: |
           go build
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build and push Docker image
+        run: |
+          docker build -t ghcr.io/lyledouglass/djzth-utilities-bot:${{ github.sha }}-ci .
+          docker push ghcr.io/lyledouglass/djzth-utilities-bot:${{ github.sha }}-ci
