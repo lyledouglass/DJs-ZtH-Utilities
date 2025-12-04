@@ -37,20 +37,37 @@ func ListRole(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				return
 			}
 
+			var allMembers []*discordgo.Member
+			lastUserID := ""
+
 			// Fetch all members with the role
-			members, err := s.GuildMembers(i.GuildID, "", 1000)
-			if err != nil {
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content: "Failed to fetch guild members.",
-					},
-				})
-				return
+			for {
+				members, err := s.GuildMembers(i.GuildID, lastUserID, 1000)
+				if err != nil {
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "Failed to fetch guild members.",
+						},
+					})
+					return
+				}
+
+				if len(members) == 0 {
+					break
+				}
+
+				allMembers = append(allMembers, members...)
+
+				if len(members) < 1000 {
+					break
+				}
+
+				lastUserID = members[len(members)-1].User.ID
 			}
 
 			var memberList []string
-			for _, member := range members {
+			for _, member := range allMembers {
 				if contains(member.Roles, role.ID) {
 					memberList = append(memberList, member.User.Username)
 				}
