@@ -6,6 +6,7 @@ COPY . ./
 RUN CGO_ENABLED=0 GOOS=linux go build -o /main .
 
 FROM alpine:latest
+RUN apk add --no-cache curl
 WORKDIR /
 COPY --from=builder /main /main
 CMD [ "/main" ]
