@@ -285,7 +285,7 @@ func RoleButtonInteractionCreate(s *discordgo.Session, i *discordgo.InteractionC
 
 			embed := &discordgo.MessageEmbed{
 				Title:       "Sorry We Missed You",
-				Description: "Sometimes our schedules just don't line up. When you're back online and availabe for an invite, please hit the Ping Inviters button or mention <@&" + viper.GetString("championRoleId") + "> in this channel and hopefully someone will be available to assist!",
+				Description: "Sometimes our schedules just don't line up. When you're back online and available for an invite, please hit the Ping Inviters button or mention <@&" + viper.GetString("championRoleId") + "> in this channel and hopefully someone will be available to assist!",
 			}
 
 			s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
