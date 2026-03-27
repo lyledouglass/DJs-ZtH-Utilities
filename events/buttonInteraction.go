@@ -1,8 +1,11 @@
 package events
 
 import (
+	"fmt"
 	"log"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/spf13/viper"
@@ -259,6 +262,27 @@ func RoleButtonInteractionCreate(s *discordgo.Session, i *discordgo.InteractionC
 			parts := strings.Split(data.CustomID, "_")
 			userID := parts[2]
 
+			// Enforce 1-hour cooldown using the timestamp embedded in the CustomID.
+			if len(parts) >= 4 {
+				createdAt, parseErr := strconv.ParseInt(parts[3], 10, 64)
+				if parseErr == nil {
+					elapsed := time.Since(time.Unix(createdAt, 0))
+					if elapsed < time.Hour {
+						remaining := time.Hour - elapsed
+						mins := int(remaining.Minutes())
+						secs := int(remaining.Seconds()) % 60
+						_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionResponseChannelMessageWithSource,
+							Data: &discordgo.InteractionResponseData{
+								Content: fmt.Sprintf("This button is on cooldown. Please wait %dm %ds before pinging inviters again.", mins, secs),
+								Flags:   discordgo.MessageFlagsEphemeral,
+							},
+						})
+						return
+					}
+				}
+			}
+
 			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseDeferredMessageUpdate,
 			})
@@ -272,6 +296,33 @@ func RoleButtonInteractionCreate(s *discordgo.Session, i *discordgo.InteractionC
 					Roles: []string{viper.GetString("championRoleId")},
 				},
 			})
+
+			// Reset the cooldown by updating the button's CustomID with the current timestamp.
+			newPingCustomID := "ping_inviters_" + userID + "_" + strconv.FormatInt(time.Now().Unix(), 10)
+			updatedComponents := []discordgo.MessageComponent{
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.Button{
+							Label:    "Ping Inviters",
+							Style:    discordgo.PrimaryButton,
+							CustomID: newPingCustomID,
+						},
+						discordgo.Button{
+							Label:    "Sorry We Missed You",
+							Style:    discordgo.PrimaryButton,
+							CustomID: "sorry_missed_you_" + userID,
+						},
+					},
+				},
+			}
+			_, editErr := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+				ID:         i.Message.ID,
+				Channel:    i.ChannelID,
+				Components: &updatedComponents,
+			})
+			if editErr != nil {
+				log.Println("Error resetting ping inviters cooldown:", editErr)
+			}
 		} else if strings.HasPrefix(data.CustomID, "sorry_missed_you_") {
 			parts := strings.Split(data.CustomID, "_")
 			userID := parts[3]
