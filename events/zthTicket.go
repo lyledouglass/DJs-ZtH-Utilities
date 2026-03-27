@@ -2,6 +2,7 @@ package events
 
 import (
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -276,7 +277,7 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 					discordgo.Button{
 						Label:    "Ping Inviters",
 						Style:    discordgo.PrimaryButton,
-						CustomID: "ping_inviters_" + userId,
+						CustomID: "ping_inviters_" + userId + "_" + strconv.FormatInt(time.Now().Unix(), 10),
 					},
 					discordgo.Button{
 						Label:    "Sorry We Missed You",
