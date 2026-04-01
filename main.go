@@ -77,6 +77,8 @@ func main() {
 	discord.AddHandler(commands.ListRole)
 	discord.AddHandler(commands.RemoveRole)
 	discord.AddHandler(commands.Suggestion)
+	discord.AddHandler(commands.CreateRaidTeamInfo)
+	discord.AddHandler(commands.UpdateRaidTeamInfo)
 	discord.AddHandler(events.RoleButtonInteractionCreate)
 	discord.AddHandler(events.HandleReportMessageCommand)
 	discord.AddHandler(events.OnDJsThreadCreate)
