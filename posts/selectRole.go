@@ -424,7 +424,7 @@ func PostGameSeletionEmbed(s *discordgo.Session) error {
 
 	embed := &discordgo.MessageEmbed{
 		Title:       "Game Role Selection",
-		Description: "Select your preferred game roles to get pinged for relevant game events by leadership.",
+		Description: "Select roles for the games you play. This will allow you to be pinged for relevant content and see specific game channels in the server.",
 		Color:       0x00ff00,
 	}
 
@@ -1461,7 +1461,7 @@ func HandleGameSelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// Update the original message to reset the select menu
 	embed := &discordgo.MessageEmbed{
 		Title:       "Game Role Selection",
-		Description: "Select roles for the games you play. This will allow you to be pinged for relevant group content in <#" + viper.GetString("lfgChannelId") + ">.",
+		Description: "Select roles for the games you play. This will allow you to be pinged for relevant content and see specific game channels in the server.",
 		Color:       0x00ffff,
 	}
 
