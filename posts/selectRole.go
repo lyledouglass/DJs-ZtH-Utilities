@@ -424,7 +424,7 @@ func PostGameSeletionEmbed(s *discordgo.Session) error {
 
 	embed := &discordgo.MessageEmbed{
 		Title:       "Game Selection",
-		Description: "Select your preferred game roles to get pinged for relevant groups in <#" + viper.GetString("lfgChannelId") + ">.",
+		Description: "Select your preferred game roles to get pinged for relevant game events by leadership.",
 		Color:       0x00ff00,
 	}
 
