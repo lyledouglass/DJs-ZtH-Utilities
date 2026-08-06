@@ -404,7 +404,7 @@ func PostGameSeletionEmbed(s *discordgo.Session) error {
 
 	// Filter for game roles only
 	var options []discordgo.SelectMenuOption
-	gameKeywords := []string{"WoW", "FFXIV"}
+	gameKeywords := []string{"Retail WoW", "FFXIV"}
 	for roleID, roleName := range openRoles {
 		for _, keyword := range gameKeywords {
 			if strings.Contains(roleName, keyword) {
@@ -1367,7 +1367,7 @@ func HandleGameSelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	gameKeywords := []string{"WoW", "FFXIV"}
+	gameKeywords := []string{"Retail WoW", "FFXIV"}
 	var allGameRoles []string
 	for roleID, roleName := range openRoles {
 		for _, keyword := range gameKeywords {
