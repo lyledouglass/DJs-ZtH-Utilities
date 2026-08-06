@@ -394,11 +394,11 @@ func PostGameSeletionEmbed(s *discordgo.Session) error {
 	}
 
 	// Check if embed already exists
-	exists, err := checkEmbedExists(s, channelID, "Game Selection")
+	exists, err := checkEmbedExists(s, channelID, "Game Role Selection")
 	if err != nil {
-		log.Printf("Error checking if game selection embed exists: %v", err)
+		log.Printf("Error checking if game role selection embed exists: %v", err)
 	} else if exists {
-		log.Println("Game selection embed already exists, skipping post")
+		log.Println("Game role selection embed already exists, skipping post")
 		return nil
 	}
 
@@ -423,7 +423,7 @@ func PostGameSeletionEmbed(s *discordgo.Session) error {
 	})
 
 	embed := &discordgo.MessageEmbed{
-		Title:       "Game Selection",
+		Title:       "Game Role Selection",
 		Description: "Select your preferred game roles to get pinged for relevant game events by leadership.",
 		Color:       0x00ff00,
 	}
