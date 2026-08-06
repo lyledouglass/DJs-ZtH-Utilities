@@ -49,6 +49,10 @@ func onReady(s *discordgo.Session, event *discordgo.Ready) {
 	if err != nil {
 		log.Printf("Error posting pronoun selection embed: %v", err)
 	}
+	err = posts.PostGameSeletionEmbed(s)
+	if err != nil {
+		log.Printf("Error posting game selection embed: %v", err)
+	}
 	// Set up embed remover
 	posts.EmbedRemover(s)
 }
@@ -93,6 +97,7 @@ func main() {
 	discord.AddHandler(posts.HandleKeySelection)
 	discord.AddHandler(posts.HandleValorSelection)
 	discord.AddHandler(posts.HandlePronounSelection)
+	discord.AddHandler(posts.HandleGameSelection)
 
 	discord.Open()
 	defer discord.Close()

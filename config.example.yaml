@@ -72,7 +72,8 @@ lfgChannelId: ""
 # Game Selection
 gameSelectionChannelId: ""
 gameRoles:
-  "": "Game Name label to be displayed"
+  "": "Retail WoW"
+  "": "FFXIV"
 
 embedRemoveChannels:
   - ""

@@ -382,6 +382,74 @@ func PostPronounSelectionEmbed(s *discordgo.Session) error {
 	return err
 }
 
+func PostGameSeletionEmbed(s *discordgo.Session) error {
+	channelID := viper.GetString("roleSelectionChannelId")
+	openRoles := viper.GetStringMapString("openRoles")
+
+	if channelID == "" {
+		return fmt.Errorf("roleSelectionChannelId not configured")
+	}
+	if len(openRoles) == 0 {
+		return fmt.Errorf("openRoles not configured")
+	}
+
+	// Check if embed already exists
+	exists, err := checkEmbedExists(s, channelID, "Game Selection")
+	if err != nil {
+		log.Printf("Error checking if game selection embed exists: %v", err)
+	} else if exists {
+		log.Println("Game selection embed already exists, skipping post")
+		return nil
+	}
+
+	// Filter for game roles only
+	var options []discordgo.SelectMenuOption
+	gameKeywords := []string{"WoW", "FFXIV"}
+	for roleID, roleName := range openRoles {
+		for _, keyword := range gameKeywords {
+			if strings.Contains(roleName, keyword) {
+				options = append(options, discordgo.SelectMenuOption{
+					Label: roleName,
+					Value: roleID,
+				})
+				break
+			}
+		}
+	}
+
+	// Sort the options alphabetically
+	sort.Slice(options, func(i, j int) bool {
+		return options[i].Label < options[j].Label
+	})
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "Game Selection",
+		Description: "Select your preferred game roles to get pinged for relevant groups in <#" + viper.GetString("lfgChannelId") + ">.",
+		Color:       0x00ff00,
+	}
+
+	components := []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.SelectMenu{
+					CustomID:    "game_select",
+					Placeholder: "Choose games...",
+					Options:     options,
+					MinValues:   &[]int{0}[0],
+					MaxValues:   1,
+				},
+			},
+		},
+	}
+
+	_, err = s.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
+		Embeds:     []*discordgo.MessageEmbed{embed},
+		Components: components,
+	})
+
+	return err
+}
+
 // HandleRoleSelection handles the role selection interaction
 func HandleRoleSelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if i.Type != discordgo.InteractionMessageComponent {
@@ -1223,4 +1291,207 @@ func HandlePronounSelection(s *discordgo.Session, i *discordgo.InteractionCreate
 	if err != nil {
 		log.Printf("Failed to send follow-up message to user %s: %v", userID, err)
 	}
+}
+
+func HandleGameSelection(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if i.Type != discordgo.InteractionMessageComponent {
+		return
+	}
+
+	data := i.MessageComponentData()
+	if data.CustomID != "game_select" {
+		return
+	}
+
+	userID := i.Member.User.ID
+	guildID := i.GuildID
+
+	// Helper function to get member with retry
+	getMemberWithRetry := func() (*discordgo.Member, error) {
+		for attempts := 0; attempts < 3; attempts++ {
+			if attempts > 0 {
+				time.Sleep(time.Millisecond * 200)
+			}
+			member, err := s.GuildMember(guildID, userID)
+			if err != nil {
+				return nil, err
+			}
+			return member, nil
+		}
+		return nil, fmt.Errorf("failed to get member after retries")
+	}
+
+	// Fetch current member data to get up-to-date roles
+	member, err := getMemberWithRetry()
+	if err != nil {
+		log.Printf("Error fetching member data for user %s: %v", userID, err)
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Failed to fetch your current roles.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	// Process multiple role selections
+	var addedRoles, removedRoles []string
+	selectedRoleIDs := data.Values
+
+	// Get all game roles for comparison
+	openRoles := viper.GetStringMapString("openRoles")
+
+	// Check which roles user currently has
+	userRoles := make(map[string]bool)
+	for _, role := range member.Roles {
+		userRoles[role] = true
+	}
+
+	// Debug: Log what roles are actually selected
+	log.Printf("User %s selected %d game roles: %v", userID, len(selectedRoleIDs), selectedRoleIDs)
+	for _, selectedID := range selectedRoleIDs {
+		if roleName, exists := openRoles[selectedID]; exists {
+			log.Printf("Selected game role: %s (%s)", selectedID, roleName)
+		} else {
+			log.Printf("Selected unknown game role: %s", selectedID)
+		}
+	}
+
+	// Special handling: if user selects the same role they already have, treat it as deselection
+	if len(selectedRoleIDs) == 1 {
+		selectedRoleID := selectedRoleIDs[0]
+		if userRoles[selectedRoleID] {
+			log.Printf("User %s reselected game role %s they already have - treating as deselection", userID, selectedRoleID)
+			selectedRoleIDs = []string{} // Clear selection to trigger removal
+		}
+	}
+
+	gameKeywords := []string{"WoW", "FFXIV"}
+	var allGameRoles []string
+	for roleID, roleName := range openRoles {
+		for _, keyword := range gameKeywords {
+			if strings.Contains(roleName, keyword) {
+				allGameRoles = append(allGameRoles, roleID)
+				break
+			}
+		}
+	}
+
+	// Check which roles user currently has
+	userRoles = make(map[string]bool)
+	for _, role := range member.Roles {
+		userRoles[role] = true
+	}
+
+	// Process each game role
+	for _, roleID := range allGameRoles {
+		hasRole := userRoles[roleID]
+		shouldHaveRole := false
+
+		// Check if this role is selected
+		if len(selectedRoleIDs) > 0 {
+			for _, selectedRole := range selectedRoleIDs {
+				if selectedRole == roleID {
+					shouldHaveRole = true
+					break
+				}
+			}
+		}
+		// If selectedRoleIDs is empty, shouldHaveRole remains false for all roles
+
+		log.Printf("Processing game role %s (%s): hasRole=%v, shouldHaveRole=%v, selectedCount=%d", roleID, openRoles[roleID], hasRole, shouldHaveRole, len(selectedRoleIDs))
+
+		if hasRole && !shouldHaveRole {
+			// Remove role
+			log.Printf("Attempting to remove game role %s from user %s", roleID, userID)
+			err = s.GuildMemberRoleRemove(guildID, userID, roleID)
+			if err != nil {
+				log.Printf("Failed to remove game role %s from user %s: %v", roleID, userID, err)
+			} else {
+				removedRoles = append(removedRoles, openRoles[roleID])
+				userRoles[roleID] = false // Update cached state
+				log.Printf("Successfully removed game role %s from user %s", roleID, userID)
+			}
+		} else if !hasRole && shouldHaveRole {
+			// Add role
+			log.Printf("Attempting to add game role %s to user %s", roleID, userID)
+			err = s.GuildMemberRoleAdd(guildID, userID, roleID)
+			if err != nil {
+				log.Printf("Failed to add game role %s to user %s: %v", roleID, userID, err)
+			} else {
+				addedRoles = append(addedRoles, openRoles[roleID])
+				userRoles[roleID] = true // Update cached state
+				log.Printf("Successfully added game role %s to user %s", roleID, userID)
+			}
+		}
+	}
+
+	// Recreate the select menu components to keep it interactive
+	var options []discordgo.SelectMenuOption
+	for rID, roleName := range openRoles {
+		for _, keyword := range gameKeywords {
+			if strings.Contains(roleName, keyword) {
+				options = append(options, discordgo.SelectMenuOption{
+					Label: roleName,
+					Value: rID,
+				})
+				break
+			}
+		}
+	}
+
+	// Sort the options
+	sortRoleOptions(options)
+
+	components := []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.SelectMenu{
+					CustomID:    "game_select",
+					Placeholder: "Choose game roles...",
+					Options:     options,
+					MinValues:   &[]int{0}[0],
+					MaxValues:   len(options),
+				},
+			},
+		},
+	}
+
+	// Update the original message to reset the select menu
+	embed := &discordgo.MessageEmbed{
+		Title:       "Game Role Selection",
+		Description: "Select roles for the games you play. This will allow you to be pinged for relevant group content in <#" + viper.GetString("lfgChannelId") + ">.",
+		Color:       0x00ffff,
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseUpdateMessage,
+		Data: &discordgo.InteractionResponseData{
+			Embeds:     []*discordgo.MessageEmbed{embed},
+			Components: components,
+		},
+	})
+
+	// Create response message with more detailed feedback
+	var responseText string
+	if len(addedRoles) > 0 || len(removedRoles) > 0 {
+		if len(addedRoles) > 0 {
+			responseText += "✅ Added: " + strings.Join(addedRoles, ", ")
+		}
+		if len(removedRoles) > 0 {
+			if responseText != "" {
+				responseText += "\n"
+			}
+			responseText += "❌ Removed: " + strings.Join(removedRoles, ", ")
+		}
+	} else {
+		responseText = "ℹ️ No game role changes made. To remove roles, select a different role or click the dropdown and then click outside without selecting anything."
+	}
+
+	// Send ephemeral follow-up message to the user
+	s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content: responseText,
+		Flags:   discordgo.MessageFlagsEphemeral,
+	})
 }
