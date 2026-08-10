@@ -67,7 +67,7 @@ func main() {
 		log.Fatalf("Error reading config file: %s", err)
 	}
 
-	intents := discordgo.IntentsGuildMembers | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMessageReactions | discordgo.IntentsGuildMessageTyping | discordgo.IntentsGuilds | discordgo.IntentsGuildVoiceStates | discordgo.IntentsDirectMessages | discordgo.IntentsDirectMessageReactions | discordgo.IntentsDirectMessageTyping
+	intents := discordgo.IntentsGuildMembers | discordgo.IntentsGuildPresences | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMessageReactions | discordgo.IntentsGuildMessageTyping | discordgo.IntentsGuilds | discordgo.IntentsGuildVoiceStates | discordgo.IntentsDirectMessages | discordgo.IntentsDirectMessageReactions | discordgo.IntentsDirectMessageTyping
 
 	discord, err := discordgo.New("Bot " + viper.GetString("botToken"))
 	if err != nil {
@@ -90,6 +90,7 @@ func main() {
 	discord.AddHandler(events.OnMemberJoin)
 	discord.AddHandler(events.OnMemberLeave)
 	discord.AddHandler(events.OnMemberUpdate)
+	discord.AddHandler(events.StreamTeamGoLive)
 	discord.AddHandler(events.OnMessageDelete)
 	discord.AddHandler(events.OnMessageCreate)
 	discord.AddHandler(events.OnMessageUpdate)
