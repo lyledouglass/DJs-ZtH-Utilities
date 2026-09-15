@@ -99,6 +99,11 @@ func main() {
 	discord.AddHandler(posts.HandleValorSelection)
 	discord.AddHandler(posts.HandlePronounSelection)
 	discord.AddHandler(posts.HandleGameSelection)
+	discord.AddHandler(events.OnConnect)
+	discord.AddHandler(events.OnDisconnect)
+	discord.AddHandler(events.OnResumed)
+
+	events.StartHealthServer(":8080")
 
 	discord.Open()
 	defer discord.Close()
