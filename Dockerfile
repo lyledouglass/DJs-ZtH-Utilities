@@ -9,5 +9,6 @@ FROM alpine:latest
 RUN apk add --no-cache curl
 WORKDIR /
 COPY --from=builder /main /main
+EXPOSE 8080
 CMD [ "/main" ]
-HEALTHCHECK --interval=60s --timeout=30s --start-period=5s --retries=3 CMD curl -f http://discord.gg || exit 1
+HEALTHCHECK --interval=60s --timeout=30s --start-period=30s --retries=3 CMD curl -f http://localhost:8080/healthz || exit 1
