@@ -39,7 +39,7 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 	}
 
 	log.Printf("Processing embed with %d fields", len(embedWithInfo.Fields))
-	var characterName, realm, mainCharacter, faction string
+	var characterName, realm, mainCharacter string
 
 	// Debug: print all fields
 	for i, field := range embedWithInfo.Fields {
@@ -56,8 +56,6 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 			realm = field.Value
 		case "Main Character":
 			mainCharacter = field.Value
-		case "Faction":
-			faction = field.Value
 		// Add alternative field names in case they're different
 		case "Character":
 			if characterName == "" {
@@ -218,6 +216,9 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 	if discordNickname != "" {
 		guildNoteValue = "[XFa:" + discordNickname + "]"
 	}
+	if isForever {
+		guildNoteValue = discordNickname
+	}
 
 	// Send warning embed if user doesn't have a server nickname
 	if !hasServerNickname {
@@ -276,13 +277,6 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 				Inline: false,
 			},
 		},
-	}
-	if isForever && faction != "" {
-		ticketEmbed.Fields = append(ticketEmbed.Fields, &discordgo.MessageEmbedField{
-			Name:   "Faction",
-			Value:  faction,
-			Inline: false,
-		})
 	}
 
 	_, err = s.ChannelMessageSendComplex(threadId, &discordgo.MessageSend{
