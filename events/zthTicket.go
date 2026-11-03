@@ -18,8 +18,10 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 		return
 	}
 
-	if !strings.HasPrefix(strings.ToLower(channel.Name), "zth-") {
-		log.Printf("Thread name '%s' does not start with 'zth-', skipping embed creation", channel.Name)
+	lowerName := strings.ToLower(channel.Name)
+	isForever := strings.HasPrefix(lowerName, "forever-")
+	if !isForever && !strings.HasPrefix(lowerName, "zth-") {
+		log.Printf("Thread name '%s' does not start with 'zth-' or 'forever-', skipping embed creation", channel.Name)
 		return
 	}
 
@@ -37,7 +39,7 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 	}
 
 	log.Printf("Processing embed with %d fields", len(embedWithInfo.Fields))
-	var characterName, realm, mainCharacter string
+	var characterName, realm, mainCharacter, faction string
 
 	// Debug: print all fields
 	for i, field := range embedWithInfo.Fields {
@@ -54,6 +56,8 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 			realm = field.Value
 		case "Main Character":
 			mainCharacter = field.Value
+		case "Faction":
+			faction = field.Value
 		// Add alternative field names in case they're different
 		case "Character":
 			if characterName == "" {
@@ -242,9 +246,14 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 
 	log.Printf("Extracted: Character='%s', Realm='%s', MainCharacter='%s', DiscordNickname='%s', UserID='%s'", characterName, realm, mainCharacter, discordNickname, userId)
 
-	if characterName == "" || realm == "" || userId == "" {
+	if characterName == "" || (!isForever && realm == "") || userId == "" {
 		log.Println("Missing character name, realm, or user ID")
 		return
+	}
+
+	characterValue := characterName + "-" + realm
+	if isForever {
+		characterValue = characterName
 	}
 
 	// Send a message to the ticket thread
@@ -253,7 +262,7 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 		Fields: []*discordgo.MessageEmbedField{
 			{
 				Name:   "Character",
-				Value:  characterName + "-" + realm,
+				Value:  characterValue,
 				Inline: false,
 			},
 			{
@@ -267,6 +276,13 @@ func createTicketEmbed(s *discordgo.Session, m *discordgo.Message, threadId stri
 				Inline: false,
 			},
 		},
+	}
+	if isForever && faction != "" {
+		ticketEmbed.Fields = append(ticketEmbed.Fields, &discordgo.MessageEmbedField{
+			Name:   "Faction",
+			Value:  faction,
+			Inline: false,
+		})
 	}
 
 	_, err = s.ChannelMessageSendComplex(threadId, &discordgo.MessageSend{
